@@ -1,11 +1,13 @@
-"""Two bounded K64 Hopper pipelines over the unchanged dense device kernels.
+"""Bounded eight-warp refinements of frozen dense Hopper device kernels.
 
-M128 uses three stages; M64 uses four. Original BF16 operands, FP32
-accumulation/merge, final BF16 storage, and no retained weight copies.
+M128/K128/stages2 covers B2-32; M64/K128/stages3 covers only B17-32.
+M64/BB16 is excluded because pinned Triton3.1 selects instruction N8,
+which is outside its Hopper linear-layout converter's asserted domain.
 """
 import math
 import sys
 import time
+
 import torch
 import triton
 from triton.compiler.errors import CompilationError
@@ -14,48 +16,35 @@ from hopper_gemm import HopperPlan, _hopper_dot, _hopper_merge
 from hopper_tiles import HopperTilesPlan, HopperTilesLayout, _hopper_tiles_dot
 
 
-class HopperPipelinePlan:
-    def __init__(self, x, weight, output, tile_m, splits):
-        self.batch, self.k = x.shape
-        self.n = weight.shape[0]
-        if (not 2 <= self.batch <= 32 or self.k not in (2560, 4096, 9728)
-                or tuple(weight.shape) != (self.n, self.k)
-                or tuple(output.shape) != (self.batch, self.n)
-                or tile_m not in (64, 128) or splits not in (1, 2, 4, 8)):
-            raise ValueError("unsupported dense decode shape or tile")
-        for tensor in (x, weight, output):
-            if (not tensor.is_cuda or tensor.dtype != torch.bfloat16
-                    or tensor.device != x.device or tensor.stride(1) != 1):
-                raise ValueError("expected row-major BF16 tensors on one CUDA device")
-        if not weight.is_contiguous():
-            raise ValueError("weight must be original contiguous [N,K]")
-        self.bb = 16 if self.batch <= 16 else 32
-        self.tile_m = tile_m
-        self.block_k, self.stages, self.splits = 64, (3 if tile_m == 128 else 4), splits
-        self.workspace = (torch.empty((self.splits, self.batch, self.n),
-                                      dtype=torch.float32, device=x.device)
-                          if self.splits > 1 else None)
-        self.name = f"pipeline_m{tile_m}_n{self.bb}_k64_s{splits}_p{self.stages}"
+class HopperWarpsPlan(HopperTilesPlan, HopperPlan):
+    def __init__(self, x, weight, output, block_m, splits):
+        if block_m == 128:
+            HopperTilesPlan.__init__(self, x, weight, output, splits)
+        elif (block_m == 64 and 17 <= x.shape[0] <= 32
+                and splits == HopperPlan.split_count(weight.shape[0], 128)):
+            HopperPlan.__init__(self, x, weight, output, 128)
+        else:
+            raise ValueError("unsupported eight-warp dense tile")
+        self.block_m = block_m
+        self.name = "eight_warps_" + self.name
 
     @staticmethod
-    def configurations(n, k, batch, sm_count):
-        # Exactly two configurations. Preserve each existing tile's split
-        # policy; M128 takes only the first eligible choice, never a split grid.
-        m128_splits = HopperTilesPlan.split_choices(n, k, batch, sm_count)[0]
-        m64_splits = HopperPlan.split_count(n, 128)
-        return ((128, m128_splits), (64, m64_splits))
-
-    @property
-    def extra_bytes(self):
-        return 0 if self.workspace is None else self.workspace.numel() * 4
+    def choices(n, k, batch, sm_count):
+        if not 2 <= batch <= 32:
+            return ()
+        result = tuple((128, split) for split in
+                       HopperTilesPlan.split_choices(n, k, batch, sm_count))
+        if batch >= 17:
+            result += ((64, HopperPlan.split_count(n, 128)),)
+        return result
 
     def __call__(self, x, weight, output):
         part = output if self.workspace is None else self.workspace
-        kernel = _hopper_tiles_dot if self.tile_m == 128 else _hopper_dot
-        kernel[(triton.cdiv(self.n, self.tile_m), self.splits)](
+        kernel = _hopper_tiles_dot if self.block_m == 128 else _hopper_dot
+        kernel[(triton.cdiv(self.n, self.block_m), self.splits)](
             x, weight, output, part, self.n, x.stride(0), output.stride(0),
-            B=self.batch, K=self.k, BB=self.bb, BK=self.block_k, SPLITS=self.splits,
-            num_warps=4, num_stages=self.stages,
+            B=self.batch, K=self.k, BB=self.bb, BK=128, SPLITS=self.splits,
+            num_warps=8, num_stages=self.stages,
         )
         if self.splits > 1:
             _hopper_merge[(triton.cdiv(self.batch * self.n, 512),)](
@@ -64,8 +53,8 @@ class HopperPipelinePlan:
             )
 
 
-class HopperPipelineLayout(HopperTilesLayout):
-    """Two K64 pipelines against the actual accepted Tiles/Hopper dispatcher."""
+class HopperWarpsLayout(HopperTilesLayout):
+    """Eight-warp complete operations against actual selected Tiles/Hopper."""
 
     def __init__(self, engine, native, deadline):
         self.native, self.batch = native, engine.batch
@@ -92,7 +81,7 @@ class HopperPipelineLayout(HopperTilesLayout):
              [engine.model.lm_head.weight]),
         )
         generator = torch.Generator(device=self.device)
-        generator.manual_seed(62983)
+        generator.manual_seed(63179)
         try:
             for name, template, output, weights in groups:
                 if time.monotonic() >= deadline:
@@ -111,7 +100,7 @@ class HopperPipelineLayout(HopperTilesLayout):
         return self.native.extra_bytes + sum(plan.extra_bytes for plan in self.plans.values())
 
     def _log(self, name, message):
-        print(f"[hopper-pipeline] B={self.batch} {name}: {message}",
+        print(f"[hopper-warps] B={self.batch} {name}: {message}",
               file=sys.stderr, flush=True)
 
     def _workspace_room(self, output, workspace_bytes):
@@ -143,7 +132,7 @@ class HopperPipelineLayout(HopperTilesLayout):
         if native_graph is None:
             return None
         winner, winner_ms = None, float("inf")
-        for tile_m, splits in HopperPipelinePlan.configurations(
+        for block_m, splits in HopperWarpsPlan.choices(
                 weights[0].shape[0], x.shape[1], self.batch, self.sm_count):
             if time.monotonic() >= deadline:
                 break
@@ -152,7 +141,7 @@ class HopperPipelineLayout(HopperTilesLayout):
                 self._log(name, "existing: split workspace memory guard")
                 continue
             try:
-                plan = HopperPipelinePlan(x, weights[0], output, tile_m, splits)
+                plan = HopperWarpsPlan(x, weights[0], output, block_m, splits)
             except torch.cuda.OutOfMemoryError:
                 torch.cuda.empty_cache()
                 self._log(name, "existing: split workspace allocation failed")
@@ -169,6 +158,7 @@ class HopperPipelineLayout(HopperTilesLayout):
                     break
             except (CompilationError, OutOfResources, torch.cuda.OutOfMemoryError) as error:
                 self._log(name, f"{plan.name}: {type(error).__name__}")
+                torch.cuda.empty_cache()
                 continue
             native_times, candidate_times = [], []
             for graph, samples in ((native_graph, native_times),
@@ -191,6 +181,15 @@ class HopperPipelineLayout(HopperTilesLayout):
             del candidate_graph
         return winner if time.monotonic() < deadline else None
 
+    def run(self, name, layer, x, weight, output):
+        plan = self.plans.get(name) if x.shape[0] == self.batch else None
+        if (plan is None or tuple(x.shape) != (plan.batch, plan.k)
+                or tuple(weight.shape) != (plan.n, plan.k)
+                or tuple(output.shape) != (plan.batch, plan.n)):
+            self.native.run(name, layer, x, weight, output)
+        else:
+            plan(x, weight, output)
+
     def _graph(self, name, plan, x, weights, output, deadline):
         if time.monotonic() >= deadline:
             return None
@@ -209,6 +208,8 @@ class HopperPipelineLayout(HopperTilesLayout):
             with torch.cuda.stream(stream):
                 launch()
         finally:
+            # A later launch may fail after earlier work reached this stream.
+            # Order that work before the caller releases candidate buffers.
             current.wait_stream(stream)
         torch.cuda.synchronize(x.device)
         if time.monotonic() >= deadline:
@@ -225,11 +226,3 @@ class HopperPipelineLayout(HopperTilesLayout):
         torch.cuda.synchronize(x.device)
         return graph
 
-    def run(self, name, layer, x, weight, output):
-        plan = self.plans.get(name) if x.shape[0] == self.batch else None
-        if (plan is None or tuple(x.shape) != (plan.batch, plan.k)
-                or tuple(weight.shape) != (plan.n, plan.k)
-                or tuple(output.shape) != (plan.batch, plan.n)):
-            self.native.run(name, layer, x, weight, output)
-        else:
-            plan(x, weight, output)
