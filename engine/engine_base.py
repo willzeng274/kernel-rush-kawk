@@ -99,6 +99,7 @@ class Engine:
         torch.backends.cudnn.allow_tf32 = False
         # Match the official starter and pinned PyTorch native BF16 default.
         torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
+        torch.backends.cuda.preferred_blas_library("cublaslt")
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path, torch_dtype=torch.bfloat16,
             attn_implementation="sdpa", local_files_only=True,
