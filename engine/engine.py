@@ -2,14 +2,13 @@
 
 import time
 import torch
-import torch.nn.functional as F
 import triton
 
 from engine_base import Engine as BaseEngine
 from chunk_graph import DecodeChunks
 from native_layout import NativeLayout
 from wide_gemv import WideGemvLayout
-from large_k_gemm import LargeKGemmLayout
+from prefill_attention import PrefillAttention
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
 from prefill_kernels import prefill_qkv_rope_cache_kernel
 
@@ -45,8 +44,7 @@ class Engine(BaseEngine):
             self.native_layout = NativeLayout(self, self._layout_deadline)
             self.native_layout = WideGemvLayout(
                 self, self.native_layout, self._layout_deadline)
-            self.native_layout = LargeKGemmLayout(
-                self, self.native_layout, self._layout_deadline)
+        self.prefill_attention = PrefillAttention(self, self._layout_deadline)
 
     def _prefill_eager(self):
         rows = self.prefill_rows
@@ -69,12 +67,8 @@ class Engine(BaseEngine):
                 R=4, num_warps=4, enable_fp_fusion=False,
             )
             key, value = self.prefill_kv[idx]
-            attended = F.scaled_dot_product_attention(
-                self.prefill_query_view, key, value,
-                dropout_p=0.0, is_causal=True, scale=128 ** -0.5,
-                enable_gqa=True,
-            )
-            attended_rows = attended.transpose(1, 2).reshape(rows, 4096)
+            attended_rows = self.prefill_attention.run(
+                self.prefill_query_view, key, value)
             torch.mm(attended_rows, attention.o_proj.weight.t(), out=self.prefill_branch)
             residual_norm_kernel[(rows,)](
                 self.prefill_branch, self.prefill_hidden,
