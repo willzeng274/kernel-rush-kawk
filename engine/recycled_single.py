@@ -139,3 +139,39 @@ def single_fused_attention_kernel(QKV, QW, KW, COS, SIN, META, K, V, SK, SV, O,
     tl.store(O + h[:, None] * D + d[None, :],
              numerator / tl.maximum(denom[:, None], 1.0e-20), qh[:, None] < 4)
 
+
+
+@triton.jit
+def single_attention_split_kernel(Q, K, V, META, PART, PMAX, PSUM,
+                           CAP: tl.constexpr, SPLITS: tl.constexpr,
+                           SCALE: tl.constexpr,
+                           BLOCK_N: tl.constexpr = 256,
+                           D: tl.constexpr = 128):
+    # Each program shares one K/V tile across the four grouped query heads.
+    b = tl.program_id(0).to(tl.int64)
+    kh = tl.program_id(1).to(tl.int64)
+    split = tl.program_id(2).to(tl.int64)
+    qh = tl.arange(0, 16)
+    d = tl.arange(0, D)
+    t = split * BLOCK_N + tl.arange(0, BLOCK_N)
+    pos = tl.load(META + b * 3 + 1).to(tl.int64)
+    active = tl.load(META + b * 3 + 2) > 0
+    valid = (t < CAP) & (t <= pos) & active
+    q = tl.load(Q + ((b * 32 + kh * 4 + qh[:, None]) * D + d[None, :]),
+                qh[:, None] < 4, 0)
+    k = tl.load(K + ((b * 8 + kh) * CAP + t[None, :]) * D + d[:, None],
+                valid[None, :], 0)
+    score = tl.dot(q, k).to(tl.float32) * SCALE
+    score = tl.where(valid[None, :], score, float('-inf'))
+    m = tl.maximum(tl.max(score, 1), -1.0e30)
+    p = tl.exp(score - m[:, None])
+    l = tl.sum(p, 1)
+    v = tl.load(V + ((b * 8 + kh) * CAP + t[:, None]) * D + d[None, :],
+                valid[:, None], 0)
+    acc = tl.dot(p.to(tl.bfloat16), v).to(tl.float32)
+    h = b * 32 + kh * 4 + qh
+    tl.store(PMAX + h * SPLITS + split, m, qh < 4)
+    tl.store(PSUM + h * SPLITS + split, l, qh < 4)
+    tl.store(PART + (h[:, None] * SPLITS + split) * D + d[None, :],
+             acc, qh[:, None] < 4)
+

@@ -10,25 +10,28 @@ def main():
     OUT.mkdir(exist_ok=True)
     configs = []
     for index, (rows, batch, k, bk, splits, stages) in enumerate(
-            [(64, 16, 4096, 128, 4, 3), (64, 32, 9728, 256, 1, 2),
-             (128, 32, 9728, 128, 1, 2)]):
-        for variant in ('u32_extract', 'u32_prmt', 'u8_prmt'):
+            [(64, 4, 2560, 128, 8, 3), (64, 16, 4096, 128, 4, 3),
+             (64, 32, 9728, 128, 1, 3), (64, 4, 2560, 256, 4, 2),
+             (64, 32, 9728, 256, 1, 2), (128, 4, 2560, 128, 8, 2),
+             (128, 16, 4096, 128, 4, 2), (128, 32, 9728, 128, 1, 2)]):
+        for variant in ('u8_prmt',):
             configs.append(('offline_sm90.py', dict(
                 id=f'packed_{index}_{variant}', rows=rows, B=batch, K=k, BK=bk,
                 SPLITS=splits, stages=stages, planes=True,
                 source=f'planes_{variant}.py')))
-    for cap in (544, 2080):
-        for warps in (4, 8):
-            for old in (False, True):
+    for cap in (255, 256, 257, 544, 640, 2080, 4096, 4097):
+        for warps in (8,):
+            for old in (False,):
                 configs.append(('offline_chain.py', dict(
                     kernel='chain_attention_kernel', cap=cap, width=4, warps=warps,
                     id=f'attn_c{cap}_warp{warps}_' + ('old' if old else 'hoisted'),
                     source='recycled_kernels_old.py' if old else 'recycled_kernels.py')))
     for cap in (255, 256, 257, 544, 640, 2080, 4096, 4097):
-        for kind in ('qkv_cache', 'fused_attention'):
-            configs.append(('offline_chain.py', dict(
-                kernel='single_' + kind + '_kernel', cap=cap, width=1,
-                id=f'single_{kind}_c{cap}', source='recycled_single.py')))
+        for kind in ('attention_split', 'fused_attention'):
+            for warps in (4, 8):
+                configs.append(('offline_chain.py', dict(
+                    kernel='single_' + kind + '_kernel', cap=cap, width=1, warps=warps,
+                    id=f'single_{kind}_c{cap}_warp{warps}', source='recycled_single.py')))
     results = []
     for script, config in configs:
         try:

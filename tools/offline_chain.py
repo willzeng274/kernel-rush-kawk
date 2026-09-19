@@ -27,7 +27,8 @@ def child(config):
     fusion = config['kernel'] not in ('chain_qkv_kernel', 'embedding_norm_kernel',
                                      'residual_norm_kernel', 'swiglu_kernel',
                                      'single_qkv_cache_kernel', 'single_fused_attention_kernel')
-    stages = 1 if config['kernel'] in ('chain_attention_kernel', 'single_fused_attention_kernel') else 3
+    stages = 1 if config['kernel'] in ('chain_attention_kernel', 'single_fused_attention_kernel',
+                                     'single_attention_split_kernel') else 3
     options = {'num_warps': config.get('warps', 4), 'num_stages': stages, 'enable_fp_fusion': fusion}
     kernel_result = triton.compile(
         ASTSource(kernel, signature, constants, AttrsDescriptor(divisible_by_16=set(signature))),
