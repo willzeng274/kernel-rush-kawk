@@ -14,6 +14,7 @@ from hopper_tiles import HopperTilesLayout
 from persistent_vector import PersistentVectorLayout
 from fused_cache_attention import FusedCacheAttention
 from dense_prefill import DensePrefill
+from large_prefill_postpass import extend_prefill, guard_postpass
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
 from prefill_kernels import prefill_qkv_rope_cache_kernel
 
@@ -25,6 +26,7 @@ class Engine(BaseEngine):
         super().__init__(model_path)
 
     def _allocate(self, batch, prompt, output):
+        guard_postpass(self)
         super()._allocate(batch, prompt, output)
         self.chunks = None
         self.prefill_graph = None
@@ -56,7 +58,10 @@ class Engine(BaseEngine):
             self.native_layout = PersistentVectorLayout(
                 self, self.native_layout, self._layout_deadline)
 
+        dense_started = time.monotonic()
         self.dense_prefill = DensePrefill(self, self._layout_deadline)
+        self.dense_prefill = extend_prefill(
+            self, self.dense_prefill, self._layout_deadline, dense_started)
 
     def _prefill_eager(self):
         rows = self.prefill_rows
@@ -111,6 +116,7 @@ class Engine(BaseEngine):
         torch.argmax(self.logits, dim=-1, out=self.ids)
 
     def _capture_prefill(self):
+        guard_postpass(self)
         current = torch.cuda.current_stream()
         stream = torch.cuda.Stream()
         stream.wait_stream(current)
