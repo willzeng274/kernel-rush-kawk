@@ -9,15 +9,20 @@ from offline_sm90 import OUT
 def main():
     OUT.mkdir(exist_ok=True)
     configs = []
-    for alt in (1,3):
-        for name in ('proposal_partials', 'proposal_merge'):
-            configs.append(('offline_chain.py', dict(
-                kernel=name, cap=544, width=8, warps=4, fusion=False, stages=3,
-                id=f'{name}_alt{alt}', source='topk_proposals.py',
-                constants=dict(V=151936, PARTS=75, ALT=alt, BLOCK=2048,
-                               MERGE_BLOCK=128 if alt==1 else 256),
-                signature_types=dict(Logits='*bf16', Greedy='*i64',
-                                     PartialValues='*fp32', PartialIds='*i32', Out='*i64'))))
+    for batch in (8,16,24,32):
+        for rows,bk,splits in ((64,256,1),(128,128,1)):
+            configs.append(('offline_sm90.py', dict(
+                id=f'tree_gu_m{batch}_tile{rows}_k{bk}_s{splits}',
+                rows=rows, B=batch, K=2560, BK=bk, SPLITS=splits,
+                stages=2, planes=False)))
+    configs.append(('offline_sm90.py', dict(
+        id='tree_gu_m8_tile128_k128_s2', rows=128, B=8, K=2560,
+        BK=128, SPLITS=2, stages=2, planes=False)))
+    configs.append(('offline_chain.py', dict(
+        id='tree_gu_m8_merge_s2', kernel='_hopper_merge', cap=544,width=8,
+        source='hopper_gemm.py',warps=4,fusion=True,stages=3,
+        constants=dict(SPLITS=2,BLOCK=512),
+        signature_types=dict(PART='*fp32',OUT='*bf16',N='i32',OUT_ROW='i32',TOTAL='i32'))))
     results = []
     for script, config in configs:
         try:
