@@ -1,11 +1,13 @@
 """BF16 Qwen3: packed causal SDPA prefill and fused graph decode."""
 import types
+import time
 import torch
 import torch.nn.functional as F
 import triton
 from transformers import AutoModelForCausalLM
 from transformers.cache_utils import Cache
 from transformers.models.qwen3.modeling_qwen3 import apply_rotary_pos_emb
+from linear_tuning import LinearTuner
 from custom_kernels import (
     rms_kernel, embedding_norm_kernel, residual_norm_kernel,
     qkv_rope_cache_kernel, attention_split_kernel, attention_merge_kernel,
@@ -95,6 +97,10 @@ def packed_prefill_mlp(self, x):
 
 class Engine:
     def __init__(self, model_path: str) -> None:
+        # Loading and the first generation share 300 seconds. Leave time for
+        # ordinary prefill, decode compilation, capture and warmup generation.
+        self._linear_tune_deadline = time.monotonic() + 180.0
+        self._linear_tuners = {}
         torch.backends.cuda.matmul.allow_tf32 = False
         torch.backends.cudnn.allow_tf32 = False
         torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = False
@@ -166,6 +172,12 @@ class Engine:
         self.cos, self.sin = self.cos.contiguous(), self.sin.contiguous()
         self.graph = None
         self.shape = (batch, prompt, output)
+        # Projection shapes depend on B, not prompt/cache length. Plans own
+        # scratch only and accept these newly allocated activation buffers.
+        if batch not in self._linear_tuners:
+            self._linear_tuners[batch] = LinearTuner(
+                self, deadline=self._linear_tune_deadline)
+        self.linear_tuner = self._linear_tuners[batch]
 
     def _step(self):
         """Consume self.ids at self.position; replace IDs and advance position."""
@@ -179,7 +191,7 @@ class Engine:
         for idx, layer in enumerate(self.layers):
             a, m = layer.self_attn, layer.mlp
             qkv_w, gu_w = self.packed[idx]
-            torch.mm(self.normalized, qkv_w.t(), out=self.qkv)
+            self.linear_tuner.run("qkv", self.normalized, qkv_w, self.qkv)
             qkv_rope_cache_kernel[(b, 40)](
                 self.qkv, a.q_norm.weight, a.k_norm.weight,
                 self.cos, self.sin, self.position, self.query,
@@ -197,18 +209,18 @@ class Engine:
                 self.splits, triton.next_power_of_2(self.splits),
                 num_warps=4,
             )
-            torch.mm(self.attention, a.o_proj.weight.t(), out=self.branch)
+            self.linear_tuner.run("output", self.attention, a.o_proj.weight, self.branch)
             residual_norm_kernel[(b,)](
                 self.branch, self.hidden, layer.post_attention_layernorm.weight,
                 self.normalized, self.h, self.eps, 4096,
                 num_warps=4, enable_fp_fusion=False,
             )
-            torch.mm(self.normalized, gu_w.t(), out=self.gateup)
+            self.linear_tuner.run("gateup", self.normalized, gu_w, self.gateup)
             swiglu_kernel[(triton.cdiv(b * self.i, 1024),)](
                 self.gateup, self.intermediate, self.i, b * self.i,
                 num_warps=4, enable_fp_fusion=False,
             )
-            torch.mm(self.intermediate, m.down_proj.weight.t(), out=self.branch)
+            self.linear_tuner.run("down", self.intermediate, m.down_proj.weight, self.branch)
             next_weight = (self.layers[idx + 1].input_layernorm.weight
                            if idx + 1 < len(self.layers) else self.base.norm.weight)
             residual_norm_kernel[(b,)](
