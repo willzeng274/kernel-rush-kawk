@@ -2,16 +2,19 @@
 import time
 import torch
 from recycled_validate import (CandidateRejected, _live, _close, _same_bits,
-                               _logits, _direct_replay_checked, _prefix_to)
+                               _direct_replay_checked, _prefix_to)
 from tree_host import TreeState, DEPTHS
 from top2_validate import check_model_top2, validate_top2_helper
+from native_check import compare_row, branch_job, one_job, compare_complete_trials
 
 PATHS = ((), (0,), (0, 1), (0, 1, 2), (0, 1, 2, 3), (0, 1, 2, 3, 4),
          (0, 5), (0, 5, 6), (0, 5, 6, 7))
 
 
-def _serial_compare(e, graph, inputs, base, active, deadline):
+def _serial_compare(e, graph, inputs, base, active, deadline, prefixes):
     b = e.batch
+    if len(prefixes) != b or any(len(prefix) != base for prefix in prefixes):
+        raise CandidateRejected("native branch prefix length mismatch")
     graph.replay(inputs, [base] * b, active)
     torch.cuda.synchronize()
     check_model_top2(graph)
@@ -20,6 +23,7 @@ def _serial_compare(e, graph, inputs, base, active, deadline):
     # rewrite all preceding branch slots, so the alternative never reads the
     # primary branch's rejected K/V. Committed slots below base stay untouched.
     for path in ((0, 1, 2, 3, 4), (0, 5, 6, 7)):
+        evidence = {}
         for depth, row in enumerate(path):
             _live(deadline)
             if base + depth >= e.capacity:
@@ -29,7 +33,10 @@ def _serial_compare(e, graph, inputs, base, active, deadline):
             e._step()
             selected = [j for j in range(b) if active[j] & (1 << row)]
             if selected:
-                _logits(logits[selected, row], e.logits[selected])
+                compare_row(e, logits[selected, row], e.logits[selected],
+                            [(j, base + depth) for j in selected],
+                            lambda: branch_job(prefixes, inputs, path, e.capacity, active, logits),
+                            evidence, deadline)
                 for sk, sv, k, v in zip(graph.keys, graph.values, e.keys, e.values):
                     _close(sk[selected, :, row], k[selected, :, base + depth], "tree K")
                     _close(sv[selected, :, row], v[selected, :, base + depth], "tree V")
@@ -88,10 +95,13 @@ def _compaction(e, graph, base, deadline):
     torch.cuda.synchronize()
 
 
-def _divergent_one(e, graph, inputs, base, deadline):
+def _divergent_one(e, graph, inputs, base, deadline, prefixes):
     # The alternative serial path was most recently installed by comparison.
     # Recreate the primary prefix so each divergent W1 row has a known context.
     b = e.batch
+    if len(prefixes) != b or any(len(prefix) != base for prefix in prefixes):
+        raise CandidateRejected("native W1 prefix length mismatch")
+    evidence = {}
     for depth in range(5):
         _live(deadline)
         e.position.fill_(base + depth)
@@ -108,7 +118,10 @@ def _divergent_one(e, graph, inputs, base, deadline):
         e._step()
         selected = [j for j, d in enumerate(offsets) if d == row and active[j]]
         if selected:
-            _logits(graph.logits[selected], e.logits[selected])
+            compare_row(e, graph.logits[selected], e.logits[selected],
+                        [(j, base + row) for j in selected],
+                        lambda: one_job(prefixes, inputs, e.capacity, offsets, active, graph.logits),
+                        evidence, deadline)
             for sk, sv, k, v in zip(graph.keys, graph.values, e.keys, e.values):
                 _close(sk[selected, :, 0], k[selected, :, base + row], "divergent W1 K")
                 _close(sv[selected, :, 0], v[selected, :, base + row], "divergent W1 V")
@@ -121,19 +134,19 @@ def validate_tree_numerics(e, graphs, input_ids, first, deadline):
     first_host = first.tolist()
     inputs = tuple(tuple([first_host[j]] + [input_ids[j][-(r % prompt + 1)] for r in range(7)])
                    for j in range(b))
-    _serial_compare(e, tree, inputs, prompt, [255] * b, deadline)
+    _serial_compare(e, tree, inputs, prompt, [255] * b, deadline, input_ids)
     _compaction(e, tree, prompt, deadline)
-    _divergent_one(e, one, inputs, prompt, deadline)
+    _divergent_one(e, one, inputs, prompt, deadline, input_ids)
     # Every tail depth 1..5 is exercised even for B1. This also exercises
     # alternative slots physically beyond CAP's virtual prefix index near end.
     for remaining in range(1, 6):
         _live(deadline, 2.0)
         base = e.capacity - remaining
-        _, pending = _prefix_to(e, input_ids, first, base, deadline)
+        prefix, pending = _prefix_to(e, input_ids, first, base, deadline)
         late = tuple(tuple([pending[j]] + list(inputs[j][1:])) for j in range(b))
         active = [sum(1 << row for row, depth in enumerate(DEPTHS)
                       if depth < max(0, remaining - (j % 3))) for j in range(b)]
-        _serial_compare(e, tree, late, base, active, deadline)
+        _serial_compare(e, tree, late, base, active, deadline, prefix)
         _compaction(e, tree, base, deadline)
     # No finished member reads an invalid RoPE position or changes main KV.
     _direct_replay_checked(e, one, tuple((x,) for x in first_host),
@@ -228,6 +241,7 @@ def measure_tree_and_admit(e, graphs, input_ids, first, output, deadline):
     if probe.next_plan().width != 8:
         return None
     elapsed_native, elapsed_candidate = [], []
+    trials = []
     for _ in range(2):
         _live(deadline, 3.0)
         e.prefill_graph.replay()
@@ -242,8 +256,9 @@ def measure_tree_and_admit(e, graphs, input_ids, first, output, deadline):
         start = time.perf_counter()
         actual = list(run_tree_request(e, graphs, input_ids, first_host, output, cost_one, cost_tree))
         elapsed_candidate.append(time.perf_counter() - start)
-        if actual != expected:
-            raise CandidateRejected("complete tree request differs from serial greedy reference")
+        trials.append((tuple(tuple(row) for row in actual),
+                       tuple(tuple(row) for row in expected)))
+    compare_complete_trials(e, input_ids, first_host, trials, output, deadline)
     if max(elapsed_candidate) >= min(elapsed_native) * 0.94:
         return None
     return cost_one, cost_tree

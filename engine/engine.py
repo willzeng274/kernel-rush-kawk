@@ -69,8 +69,16 @@ class Engine(RetainedEngine):
             # A failed drain propagates and keeps the quarantine intact; such a
             # device/capture failure is never treated as a recoverable fallback.
             owners = list(graphs.values()) if graphs is not None else []
-            self.recycle_quarantine.extend(owners)
+            native_owner = getattr(self, "native_check_owner", None)
+            if native_owner is not None:
+                owners.append(native_owner)
+            for owner in owners:
+                if not any(held is owner for held in self.recycle_quarantine):
+                    self.recycle_quarantine.append(owner)
             torch.cuda.synchronize()
+            if native_owner is not None:
+                native_owner.release_after_drain()
+                self.native_check_owner = None
             for owner in owners:
                 self.recycle_quarantine.remove(owner)
             if sys.exc_info()[0] is None:
