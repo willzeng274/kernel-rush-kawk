@@ -2,8 +2,8 @@
 
 K/V main [B,8,CAP,128], scratch [B,8,W,128]; flattened activations [B*W,...].
 META rows contain [W tokens, consumed length, active node bitmask]. All pointer
-products for cache/position use int64. W=8; each attention CTA owns two GQA heads times eight tree nodes,
-16 query rows, independent of batch. No M64 MMA tile is used.
+products for cache/position use int64. W=8; each attention CTA owns four GQA heads times eight tree nodes,
+32 query rows, independent of batch. No M64 MMA tile is used.
 """
 import triton
 import triton.language as tl
@@ -58,20 +58,18 @@ def tree_attention_kernel(Q, K, V, SK, SV, META, PART, PMAX, PSUM,
                            SPLITS: tl.constexpr, SCALE: tl.constexpr,
                            BLOCK_N: tl.constexpr = 256, D: tl.constexpr = 128):
     b = tl.program_id(0).to(tl.int64)
-    group = tl.program_id(1).to(tl.int64)
-    kh = group // 2
-    half = group % 2
+    kh = tl.program_id(1).to(tl.int64)
     split = tl.program_id(2).to(tl.int64)
     length = tl.load(META + b * (W + 2) + W).to(tl.int64)
     active = tl.load(META + b * (W + 2) + W + 1)
-    r = tl.arange(0, 16)
-    row, head = r // 2, kh * 4 + half * 2 + r % 2
+    r = tl.arange(0, 32)
+    row, head = r // 4, kh * 4 + r % 4
     ancestry = tl.where(row < 5, (1 << (row + 1)) - 1,
                         tl.where(row == 5, 33, tl.where(row == 6, 97, 225)))
     d = tl.arange(0, D)
     t = split * BLOCK_N + tl.arange(0, BLOCK_N)
     scratch_row = t - length
-    committed = (t < length) & (t < CAP)
+    committed = (t < length) & (t < CAP) & (active != 0)
     safe_node = tl.maximum(0, tl.minimum(scratch_row, W - 1))
     scratch = ((scratch_row >= 0) & (scratch_row < W)
                & ((active & (1 << safe_node)) != 0))
