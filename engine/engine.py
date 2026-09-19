@@ -9,7 +9,7 @@ from engine_base import Engine as BaseEngine
 from chunk_graph import DecodeChunks
 from native_layout import NativeLayout
 from wide_gemv import WideGemvLayout
-from lossless_packing import PackedGemvLayout
+from packed_gemm import PackedGemmLayout
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
 from prefill_kernels import prefill_qkv_rope_cache_kernel
 
@@ -45,8 +45,9 @@ class Engine(BaseEngine):
             self.native_layout = NativeLayout(self, self._layout_deadline)
             self.native_layout = WideGemvLayout(
                 self, self.native_layout, self._layout_deadline)
-            self.native_layout = PackedGemvLayout(
-                self, self.native_layout, self._layout_deadline)
+            if 2 <= batch <= 32:
+                self.native_layout = PackedGemmLayout(
+                    self, self.native_layout, self._layout_deadline)
 
     def _prefill_eager(self):
         rows = self.prefill_rows
