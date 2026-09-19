@@ -46,7 +46,7 @@ class HopperTilesPlan:
     def __init__(self, x, weight, output, splits):
         self.batch, self.k = x.shape
         self.n = weight.shape[0]
-        if (not 2 <= self.batch <= 32 or self.k not in (2560, 4096, 9728)
+        if (not 1 <= self.batch <= 32 or self.k not in (2560, 4096, 9728)
                 or tuple(weight.shape) != (self.n, self.k)
                 or tuple(output.shape) != (self.batch, self.n)
                 or splits not in (1, 2, 4, 8)):
@@ -107,7 +107,7 @@ class HopperTilesLayout(HopperGemmLayout):
         self.native, self.batch = native, engine.batch
         self.plans = {}
         self.device = engine.normalized.device
-        if not 2 <= self.batch <= 32:
+        if not 1 <= self.batch <= 32:
             return
         if time.monotonic() >= deadline:
             return
