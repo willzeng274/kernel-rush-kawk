@@ -14,18 +14,11 @@ def main():
         constants = dict(CAP=cap, W=8, EPS=1e-6, D=128, SPLITS=splits,
                          SCALE=128**-.5, BLOCK_N=256,
                          BLOCK_S=1 << (splits-1).bit_length(), ROWS=64, BLOCK=128)
-        for kind in ('qkv', 'attention', 'compact'):
+        for warps in (8, 16):
             configs.append(('offline_chain.py', dict(
-                kernel='tree_' + kind + '_kernel', cap=cap, width=8,
-                warps=8 if kind == 'attention' else 4,
-                id=f'tree_{kind}_c{cap}_w8', source='tree_kernels.py', constants=constants)))
-        configs.append(('offline_chain.py', dict(
-            kernel='chain_merge_kernel', cap=cap, width=8, warps=4,
-            id=f'tree_merge_c{cap}_w8', source='recycled_kernels.py', constants=constants)))
-    for batch in range(1,9):
-        configs.append(('offline_chain.py', dict(
-            kernel='chain_ids_kernel', cap=544, width=8, batch=batch,
-            id=f'tree_ids_b{batch}_w8', source='recycled_kernels.py')))
+                kernel='tree_attention_kernel', cap=cap, width=8,
+                warps=warps, id=f'tree_m32_c{cap}_warp{warps}',
+                source='tree_kernels_m32.py', constants=constants)))
     results = []
     for script, config in configs:
         try:
