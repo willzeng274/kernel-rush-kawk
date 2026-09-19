@@ -8,7 +8,6 @@ import triton
 from engine_base import Engine as BaseEngine
 from chunk_graph import DecodeChunks
 from native_layout import NativeLayout
-from ilc_weights import ILCWeights
 from wide_gemv import WideGemvLayout
 from hopper_gemm import HopperGemmLayout
 from hopper_tiles import HopperTilesLayout
@@ -21,12 +20,7 @@ from prefill_kernels import prefill_qkv_rope_cache_kernel
 
 class Engine(BaseEngine):
     def __init__(self, model_path: str) -> None:
-        self._engine_started = time.monotonic()
-        self._layout_deadline = self._engine_started + 180.0
-        self._ilc_deadline = self._engine_started + 225.0
-        self._attention_deadline = self._layout_deadline
-        self._ilc_layout = None
-        self._uncompressed_layout = None
+        self._layout_deadline = time.monotonic() + 180.0
         self.native_layout = None
         super().__init__(model_path)
 
@@ -63,24 +57,6 @@ class Engine(BaseEngine):
                 self, self.native_layout, self._layout_deadline)
 
         self.dense_prefill = DensePrefill(self, self._layout_deadline)
-
-        # Keep original selector ordering and its 180s deadline unchanged.
-        # Compression gets a separate cooperative 45s budget before capture,
-        # capped at engine-start+225s within the shared 300s load/warmup gate.
-        if self._uncompressed_layout is None:
-            self._uncompressed_layout = self.native_layout
-        previous = self._ilc_layout
-        ilc_started = time.monotonic()
-        self._ilc_layout = ILCWeights(self, self._uncompressed_layout, self._ilc_deadline)
-        ilc_elapsed = max(0.0, min(45.0, time.monotonic() - ilc_started))
-        # Added transport selection must not consume the preexisting FCA
-        # opportunity. Credit only its own elapsed time, once and at most 45s;
-        # earlier decode/Dense selectors retain their original 180s deadline.
-        self._attention_deadline = max(
-            self._attention_deadline,
-            min(self._ilc_deadline, self._layout_deadline + ilc_elapsed))
-        self._ilc_layout._previous = previous  # Keep old graph pointers alive.
-        self.native_layout = self._ilc_layout
 
     def _prefill_eager(self):
         rows = self.prefill_rows
@@ -151,7 +127,7 @@ class Engine(BaseEngine):
         self.prefill_graph = graph
 
     def _capture_chunks(self, first, steps):
-        self.fused_cache_attention = FusedCacheAttention(self, self._attention_deadline)
+        self.fused_cache_attention = FusedCacheAttention(self, self._layout_deadline)
         def decode():
             self._step()
             return self.ids
