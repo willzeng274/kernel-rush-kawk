@@ -220,8 +220,7 @@ def measure_tree_and_admit(e, graphs, input_ids, first, output, deadline):
             endpoint_native.append((time.perf_counter() - start) / 4)
         endpoint_pairs.append((max(endpoint_one), min(endpoint_native)))
     cost_one, cost_tree = max(one_times), max(tree_times)
-    if (any(one > native * 1.04 for one, native in endpoint_pairs)
-            or cost_tree >= cost_one * 4.5):
+    if cost_tree >= cost_one * 4.5:
         return None
     # Refuse an impossible first attempt explicitly. Request initialization is
     # measured in each TreeState and added to its debt before issuing a plan.
