@@ -86,13 +86,17 @@ class HopperTilesPlan:
     def extra_bytes(self):
         return 0 if self.workspace is None else self.workspace.numel() * 4
 
-    def __call__(self, x, weight, output):
+    def produce_partials(self, x, weight, output):
+        """Launch the original producer verbatim; caller owns its epilogue."""
         part = output if self.workspace is None else self.workspace
         _hopper_tiles_dot[(triton.cdiv(self.n, 128), self.splits)](
             x, weight, output, part, self.n, x.stride(0), output.stride(0),
             B=self.batch, K=self.k, BB=self.bb, BK=self.block_k, SPLITS=self.splits,
             num_warps=4, num_stages=self.stages,
         )
+
+    def __call__(self, x, weight, output):
+        self.produce_partials(x, weight, output)
         if self.splits > 1:
             _hopper_merge[(triton.cdiv(self.batch * self.n, 512),)](
                 self.workspace, output, self.n, output.stride(0), self.batch * self.n,
