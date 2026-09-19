@@ -4,15 +4,14 @@ import triton
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
 from recycled_kernels import chain_ids_kernel, chain_merge_kernel
 from tree_kernels import tree_qkv_kernel, tree_attention_kernel, tree_compact_kernel
-from tree_gateup import select_gateup
+from topk_proposals import proposals_out
+from top2_validate import check_proposal_buffers
 from recycled_validate import _live
 
 
 class TreeGraph:
     def __init__(self, engine, width=8):
         self.engine, self.width = engine, int(width)
-        self.gateup_plan = None
-        self.projection_trials = []
         assert self.width == 8
         b, w, device = engine.batch, self.width, engine.ids.device
         self.rows = b * w
@@ -44,6 +43,12 @@ class TreeGraph:
         self.keys = [empty(b, 8, w, 128) for _ in engine.layers]
         self.values = [empty(b, 8, w, 128) for _ in engine.layers]
         self.output_flat = self.output.view(-1)
+        self.proposal_values = empty(self.rows, 75, 1, dtype=torch.float32)
+        self.proposal_partials = empty(self.rows, 75, 1, dtype=torch.int32)
+        self.proposal_ids = empty(self.rows, 2, dtype=torch.int64)
+        self.proposal_view = self.proposal_ids.view(b, w, 2)
+        check_proposal_buffers(self.logits, self.output_flat, self.proposal_values,
+                               self.proposal_partials, self.proposal_ids)
         self.meta[:, w].fill_(engine.prompt)
         self.meta[:, w + 1].fill_(1)
         self.stream = torch.cuda.Stream(device=device)
@@ -53,10 +58,6 @@ class TreeGraph:
         engine.recycle_quarantine.append(self)
         try:
             torch.cuda.synchronize(device)
-            select_gateup(self, engine.recycle_deadline)
-            _live(engine.recycle_deadline)
-            # Selection mutates only tree scratch. Rebuild every activation
-            # from real input IDs before capturing the complete verifier.
             with torch.cuda.stream(self.stream):
                 self._verify()
                 # Negative paths warm compaction kernels without main writes.
@@ -82,16 +83,11 @@ class TreeGraph:
             torch.cuda.synchronize(device)
             engine.recycle_quarantine.remove(self)
             raise
-        self.projection_trials.clear()  # All trial work drained; selected plan remains owned.
         engine.recycle_quarantine.remove(self)
 
     def _linear(self, family, index, x, weight, out):
-        # One BF16 projection over all B*8 hypothetical rows. Only gate/up
-        # may use its independently checked and timed existing Hopper plan.
-        if family == "gateup" and self.gateup_plan is not None:
-            self.gateup_plan(x, weight, out)
-        else:
-            torch.mm(x, weight.t(), out=out)
+        # One BF16 projection over all B*8 hypothetical rows.
+        torch.mm(x, weight.t(), out=out)
 
     def _verify(self):
         e, rows, w = self.engine, self.rows, self.width
@@ -132,6 +128,11 @@ class TreeGraph:
                 e.h, e.eps, 4096, num_warps=4, enable_fp_fusion=False)
         self._linear("head", 0, self.normalized, e.model.lm_head.weight, self.logits)
         torch.argmax(self.logits, dim=-1, out=self.output_flat)
+        # Setup/capture only: a long preceding compilation must not enter a
+        # new helper compilation after the absolute warmup deadline.
+        _live(e.recycle_deadline)
+        proposals_out(self.logits, self.output_flat, self.proposal_values,
+                      self.proposal_partials, self.proposal_ids, 2)
 
     def _compact(self):
         e, w = self.engine, self.width

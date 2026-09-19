@@ -4,6 +4,7 @@ import torch
 from recycled_validate import (CandidateRejected, _live, _close, _same_bits,
                                _logits, _direct_replay_checked, _prefix_to)
 from tree_host import TreeState, DEPTHS
+from top2_validate import check_model_top2, validate_top2_helper
 
 PATHS = ((), (0,), (0, 1), (0, 1, 2), (0, 1, 2, 3), (0, 1, 2, 3, 4),
          (0, 5), (0, 5, 6), (0, 5, 6, 7))
@@ -13,6 +14,7 @@ def _serial_compare(e, graph, inputs, base, active, deadline):
     b = e.batch
     graph.replay(inputs, [base] * b, active)
     torch.cuda.synchronize()
+    check_model_top2(graph)
     logits = graph.logits.view(b, 8, -1)
     # Restart causal input position at the root for each branch. Serial calls
     # rewrite all preceding branch slots, so the alternative never reads the
@@ -115,6 +117,7 @@ def _divergent_one(e, graph, inputs, base, deadline):
 def validate_tree_numerics(e, graphs, input_ids, first, deadline):
     b, prompt = e.batch, e.prompt
     tree, one = graphs[8], graphs[1]
+    validate_top2_helper(tree, deadline)
     first_host = first.tolist()
     inputs = tuple(tuple([first_host[j]] + [input_ids[j][-(r % prompt + 1)] for r in range(7)])
                    for j in range(b))
@@ -144,6 +147,7 @@ def validate_tree_numerics(e, graphs, input_ids, first, deadline):
     torch.cuda.synchronize()
     if not torch.isfinite(tree.logits).all():
         raise CandidateRejected("finished tree numerical state is not finite")
+    check_model_top2(tree)
     for sk, sv in zip(tree.keys, tree.values):
         if torch.count_nonzero(sk) or torch.count_nonzero(sv):
             raise CandidateRejected("finished tree members wrote scratch cache")
@@ -157,6 +161,16 @@ def _compact(graph, paths):
     graph.compact(tuple(len(path) for path in paths) if graph.width == 1 else paths)
 
 
+def _commit_output(state, plan, graph):
+    if plan.width == 8:
+        # One synchronization/transfer replaces the old argmax-only transfer.
+        # Column zero is the original torch.argmax copied by the helper.
+        ranked = graph.proposal_view.tolist()
+        predictions = [[pair[0] for pair in rows] for rows in ranked]
+        return state.commit(plan, predictions, ranked=ranked)
+    return state.commit(plan, graph.output.tolist())
+
+
 def run_tree_request(e, graphs, input_ids, first_row, output, one_cost, tree_cost):
     state = TreeState(input_ids, first_row, output, one_cost, tree_cost)
     plan = state.next_plan()
@@ -164,7 +178,7 @@ def run_tree_request(e, graphs, input_ids, first_row, output, one_cost, tree_cos
         graphs[plan.width].replay(plan.inputs, plan.lengths, plan.active)
     while plan is not None:
         graph = graphs[plan.width]
-        paths = state.commit(plan, graph.output.tolist())
+        paths = _commit_output(state, plan, graph)
         _compact(graph, paths)
         rows = state.take_rows()
         following = state.next_plan()
@@ -191,7 +205,7 @@ def measure_tree_and_admit(e, graphs, input_ids, first, output, deadline):
                 plan = state.next_plan(force_width=width)
                 graph = graphs[width]
                 graph.replay(plan.inputs, plan.lengths, plan.active)
-                paths = state.commit(plan, graph.output.tolist())
+                paths = _commit_output(state, plan, graph)
                 _compact(graph, paths)
                 state.take_rows()
                 torch.cuda.synchronize()
