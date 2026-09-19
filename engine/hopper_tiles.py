@@ -133,8 +133,7 @@ class HopperTilesLayout(HopperGemmLayout):
             if time.monotonic() >= deadline:
                 break
             winner = self._select(name, template, weights, output, generator, deadline)
-            # _select returns only fully checked, timed, and drained plans.
-            if winner is not None:
+            if winner is not None and time.monotonic() < deadline:
                 self.plans[name] = winner
             chosen = self.plans.get(name)
             self._log(name, "selected " + (chosen.name if chosen else "existing layout"))
@@ -157,92 +156,74 @@ class HopperTilesLayout(HopperGemmLayout):
         return free - required - workspace_bytes >= total // 4
 
     def _select(self, name, template, weights, output, generator, deadline):
+        if time.monotonic() >= deadline:
+            return None
+        torch.cuda.synchronize(self.device)
+        torch.cuda.empty_cache()
+        if time.monotonic() >= deadline or not self._room(output):
+            self._log(name, "existing: deadline or numerical memory guard")
+            return None
         try:
-            if time.monotonic() >= deadline:
-                return None
-            torch.cuda.synchronize(self.device)
+            reference = torch.empty_like(output)
+        except torch.cuda.OutOfMemoryError:
             torch.cuda.empty_cache()
-            if time.monotonic() >= deadline or not self._room(output):
-                self._log(name, "existing: deadline or numerical memory guard")
-                return None
+            self._log(name, "existing: numerical reference allocation failed")
+            return None
+        x = template
+        x.normal_(generator=generator)
+        if time.monotonic() >= deadline:
+            return None
+        native_graph = self._graph(name, None, x, weights, output, deadline)
+        if native_graph is None:
+            return None
+        winner, winner_ms = None, float("inf")
+        for splits in HopperTilesPlan.split_choices(
+                weights[0].shape[0], x.shape[1], self.batch, self.sm_count):
             if time.monotonic() >= deadline:
-                return None
+                break
+            workspace_bytes = output.numel() * splits * 4 if splits > 1 else 0
+            if not self._workspace_room(output, workspace_bytes):
+                self._log(name, "existing: split workspace memory guard")
+                continue
             try:
-                reference = torch.empty_like(output)
+                plan = HopperTilesPlan(x, weights[0], output, splits)
             except torch.cuda.OutOfMemoryError:
                 torch.cuda.empty_cache()
-                self._log(name, "existing: numerical reference allocation failed")
-                return None
-            x = template
-            if time.monotonic() >= deadline:
-                return None
-            x.normal_(generator=generator)
-            if time.monotonic() >= deadline:
-                return None
-            native_graph = self._graph(name, None, x, weights, output, deadline)
-            if native_graph is None:
-                return None
-            winner, winner_ms = None, float("inf")
-            for splits in HopperTilesPlan.split_choices(
-                    weights[0].shape[0], x.shape[1], self.batch, self.sm_count):
-                if time.monotonic() >= deadline:
-                    break
-                workspace_bytes = output.numel() * splits * 4 if splits > 1 else 0
-                if not self._workspace_room(output, workspace_bytes):
-                    self._log(name, "existing: split workspace memory guard")
+                self._log(name, "existing: split workspace allocation failed")
+                continue
+            try:
+                if not self._check(name, plan, x, weights, output, reference,
+                                   generator, deadline):
+                    self._log(name, f"{plan.name}: numerical check rejected")
                     continue
                 if time.monotonic() >= deadline:
                     break
-                try:
-                    plan = HopperTilesPlan(x, weights[0], output, splits)
-                except torch.cuda.OutOfMemoryError:
-                    torch.cuda.empty_cache()
-                    self._log(name, "existing: split workspace allocation failed")
-                    continue
-                try:
-                    if not self._check(name, plan, x, weights, output, reference,
-                                       generator, deadline):
-                        self._log(name, f"{plan.name}: numerical check rejected")
-                        continue
-                    if time.monotonic() >= deadline:
-                        break
-                    candidate_graph = self._graph(name, plan, x, weights, output, deadline)
-                    if candidate_graph is None:
-                        break
-                except (CompilationError, OutOfResources) as error:
-                    self._log(name, f"{plan.name}: {type(error).__name__}")
-                    torch.cuda.synchronize(self.device)
-                    continue
-                native_times, candidate_times = [], []
-                for graph, samples in ((native_graph, native_times),
-                                       (candidate_graph, candidate_times),
-                                       (candidate_graph, candidate_times),
-                                       (native_graph, native_times)):
-                    if time.monotonic() >= deadline:
-                        break
-                    value = self._time(graph, len(weights), deadline)
-                    if value is None:
-                        break
-                    samples.append(value)
-                if len(native_times) != 2 or len(candidate_times) != 2:
-                    del candidate_graph
+                candidate_graph = self._graph(name, plan, x, weights, output, deadline)
+                if candidate_graph is None:
                     break
+            except (CompilationError, OutOfResources) as error:
+                self._log(name, f"{plan.name}: {type(error).__name__}")
+                continue
+            native_times, candidate_times = [], []
+            for graph, samples in ((native_graph, native_times),
+                                   (candidate_graph, candidate_times),
+                                   (candidate_graph, candidate_times),
+                                   (native_graph, native_times)):
                 if time.monotonic() >= deadline:
                     break
-                native_ms, custom_ms = min(native_times), max(candidate_times)
-                self._log(name, f"{plan.name}: existing {native_ms * 1000:.2f} us, "
-                          f"custom {custom_ms * 1000:.2f} us")
-                if (all(math.isfinite(value) and value > 0
-                        for value in native_times + candidate_times)
-                        and custom_ms < native_ms * 0.95 and custom_ms < winner_ms):
-                    winner, winner_ms = plan, custom_ms
+                samples.append(self._time(graph, len(weights)))
+            if len(native_times) != 2 or len(candidate_times) != 2:
                 del candidate_graph
-            # A later incomplete trial must not erase an earlier valid winner.
-            return winner
-        finally:
-            # Drain before local references/workspaces leave scope.
-            # CUDA execution or drain errors must still propagate.
-            torch.cuda.synchronize(self.device)
+                break
+            native_ms, custom_ms = min(native_times), max(candidate_times)
+            self._log(name, f"{plan.name}: existing {native_ms * 1000:.2f} us, "
+                      f"custom {custom_ms * 1000:.2f} us")
+            if (all(math.isfinite(value) and value > 0
+                    for value in native_times + candidate_times)
+                    and custom_ms < native_ms * 0.95 and custom_ms < winner_ms):
+                winner, winner_ms = plan, custom_ms
+            del candidate_graph
+        return winner if time.monotonic() < deadline else None
 
     def run(self, name, layer, x, weight, output):
         plan = self.plans.get(name) if x.shape[0] == self.batch else None

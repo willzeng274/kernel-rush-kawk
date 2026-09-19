@@ -84,8 +84,7 @@ class WideGemvLayout:
             if time.monotonic() >= deadline:
                 break
             winner = self._select(name, template, weights, output, generator, deadline)
-            # _select returns only fully checked, timed, and drained plans.
-            if winner is not None:
+            if winner is not None and time.monotonic() < deadline:
                 self.plans[name] = winner
             chosen = self.plans.get(name)
             self._log(name, "selected " + (chosen.name if chosen else "native layout"))
@@ -121,12 +120,7 @@ class WideGemvLayout:
         for index, scale in ((0, 1.0), (len(weights) - 1, 0.1), (0, 10.0)):
             if time.monotonic() >= deadline:
                 return False
-            x.normal_(generator=generator)
-            if time.monotonic() >= deadline:
-                return False
-            x.mul_(scale)
-            if time.monotonic() >= deadline:
-                return False
+            x.normal_(generator=generator).mul_(scale)
             self.native.run(name, index, x, weights[index], reference)
             if time.monotonic() >= deadline:
                 return False
@@ -135,8 +129,6 @@ class WideGemvLayout:
                 return False
             if not self._room(output, reference_live=True):
                 self._log(name, "native: comparison memory guard")
-                return False
-            if time.monotonic() >= deadline:
                 return False
             try:
                 if not torch.allclose(output, reference, rtol=0.01, atol=0.01):
@@ -150,86 +142,66 @@ class WideGemvLayout:
         return True
 
     def _select(self, name, template, weights, output, generator, deadline):
+        if time.monotonic() >= deadline:
+            return None
+        torch.cuda.synchronize(self.device)
+        torch.cuda.empty_cache()
+        if time.monotonic() >= deadline or not self._room(output):
+            self._log(name, "native: deadline or numerical memory guard")
+            return None
         try:
-            if time.monotonic() >= deadline:
-                return None
-            torch.cuda.synchronize(self.device)
+            reference = torch.empty_like(output)
+        except torch.cuda.OutOfMemoryError:
             torch.cuda.empty_cache()
-            if time.monotonic() >= deadline or not self._room(output):
-                self._log(name, "native: deadline or numerical memory guard")
-                return None
+            self._log(name, "native: numerical reference allocation failed")
+            return None
+        # These persistent decode activations are scratch until real prefill.
+        # Real prefill and decode overwrite them before consuming their values.
+        x = template
+        x.normal_(generator=generator)
+        if time.monotonic() >= deadline:
+            return None
+        native_graph = self._graph(name, None, x, weights, output, deadline)
+        if native_graph is None:
+            return None
+        winner, winner_ms = None, float("inf")
+        for warps in (4, 8):
             if time.monotonic() >= deadline:
-                return None
+                break
+            plan = WidePlan(x.shape[1], warps)
             try:
-                reference = torch.empty_like(output)
-            except torch.cuda.OutOfMemoryError:
-                torch.cuda.empty_cache()
-                self._log(name, "native: numerical reference allocation failed")
-                return None
-            # These persistent decode activations are scratch until real prefill.
-            # Real prefill and decode overwrite them before consuming their values.
-            x = template
-            if time.monotonic() >= deadline:
-                return None
-            x.normal_(generator=generator)
-            if time.monotonic() >= deadline:
-                return None
-            native_graph = self._graph(name, None, x, weights, output, deadline)
-            if native_graph is None:
-                return None
-            winner, winner_ms = None, float("inf")
-            for warps in (4, 8):
-                if time.monotonic() >= deadline:
-                    break
-                plan = WidePlan(x.shape[1], warps)
-                try:
-                    if not self._check(name, plan, x, weights, output, reference,
-                                       generator, deadline):
-                        self._log(name, f"{plan.name}: numerical check rejected")
-                        continue
-                    if time.monotonic() >= deadline:
-                        break
-                    candidate_graph = self._graph(name, plan, x, weights, output, deadline)
-                    if candidate_graph is None:
-                        break
-                except (CompilationError, OutOfResources) as error:
-                    self._log(name, f"{plan.name}: {type(error).__name__}")
-                    torch.cuda.synchronize(self.device)
-                    continue
-                # Rotate six actual layer weights beyond L2. Require the slower
-                # custom median to beat the faster native median by at least 5%.
-                native_times, candidate_times = [], []
-                for graph, samples in ((native_graph, native_times),
-                                       (candidate_graph, candidate_times),
-                                       (candidate_graph, candidate_times),
-                                       (native_graph, native_times)):
-                    if time.monotonic() >= deadline:
-                        break
-                    value = self._time(graph, len(weights), deadline)
-                    if value is None:
-                        break
-                    samples.append(value)
-                if len(native_times) != 2 or len(candidate_times) != 2:
-                    del candidate_graph
-                    break
-                if not all(0.0 < value < float("inf")
-                           for value in native_times + candidate_times):
-                    del candidate_graph
+                if not self._check(name, plan, x, weights, output, reference,
+                                   generator, deadline):
+                    self._log(name, f"{plan.name}: numerical check rejected")
                     continue
                 if time.monotonic() >= deadline:
                     break
-                native_ms, custom_ms = min(native_times), max(candidate_times)
-                self._log(name, f"{plan.name}: native {native_ms * 1000:.2f} us, "
-                          f"custom {custom_ms * 1000:.2f} us")
-                if custom_ms < native_ms * 0.95 and custom_ms < winner_ms:
-                    winner, winner_ms = plan, custom_ms
+                candidate_graph = self._graph(name, plan, x, weights, output, deadline)
+                if candidate_graph is None:
+                    break
+            except (CompilationError, OutOfResources) as error:
+                self._log(name, f"{plan.name}: {type(error).__name__}")
+                continue
+            # Rotate six actual layer weights beyond L2. Require the slower
+            # custom median to beat the faster native median by at least 5%.
+            native_times, candidate_times = [], []
+            for graph, samples in ((native_graph, native_times),
+                                   (candidate_graph, candidate_times),
+                                   (candidate_graph, candidate_times),
+                                   (native_graph, native_times)):
+                if time.monotonic() >= deadline:
+                    break
+                samples.append(self._time(graph, len(weights)))
+            if len(native_times) != 2 or len(candidate_times) != 2:
                 del candidate_graph
-            # A later incomplete trial must not erase an earlier valid winner.
-            return winner
-        finally:
-            # Drain before local references/workspaces leave scope.
-            # CUDA execution or drain errors must still propagate.
-            torch.cuda.synchronize(self.device)
+                break
+            native_ms, custom_ms = min(native_times), max(candidate_times)
+            self._log(name, f"{plan.name}: native {native_ms * 1000:.2f} us, "
+                      f"custom {custom_ms * 1000:.2f} us")
+            if custom_ms < native_ms * 0.95 and custom_ms < winner_ms:
+                winner, winner_ms = plan, custom_ms
+            del candidate_graph
+        return winner if time.monotonic() < deadline else None
 
     def _graph(self, name, plan, x, weights, output, deadline):
         if time.monotonic() >= deadline:
@@ -240,58 +212,39 @@ class WideGemvLayout:
 
         def launch():
             for index, weight in enumerate(weights):
-                if time.monotonic() >= deadline:
-                    return False
                 if plan is None:
                     self.native.run(name, index, x, weight, output)
                 else:
                     plan(x, weight, output)
-            return True
 
-        try:
-            with torch.cuda.stream(stream):
-                complete = launch()
-            current.wait_stream(stream)
-            torch.cuda.synchronize(x.device)
-            if not complete or time.monotonic() >= deadline:
-                return None
-            graph = torch.cuda.CUDAGraph()
-            with torch.cuda.graph(graph, stream=stream):
-                complete = launch()
-            current.wait_stream(stream)
-            if not complete or time.monotonic() >= deadline:
-                return None
-            graph.replay()
-        finally:
-            # Compilation/capture failure or expiration may leave side-stream
-            # work in flight. Keep graph/plan/buffer references until drained.
-            current.wait_stream(stream)
-            torch.cuda.synchronize(x.device)
+        with torch.cuda.stream(stream):
+            launch()
+        current.wait_stream(stream)
+        torch.cuda.synchronize(x.device)
         if time.monotonic() >= deadline:
             return None
+        graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(graph, stream=stream):
+            launch()
+        current.wait_stream(stream)
+        if time.monotonic() >= deadline:
+            return None
+        graph.replay()
+        torch.cuda.synchronize(x.device)
         return graph
 
     @staticmethod
-    def _time(graph, count, deadline):
+    def _time(graph, count):
         samples = []
         start = torch.cuda.Event(enable_timing=True)
         end = torch.cuda.Event(enable_timing=True)
         for _ in range(3):
-            if time.monotonic() >= deadline:
-                return None
             start.record()
             for _ in range(32):
-                if time.monotonic() >= deadline:
-                    return None
                 graph.replay()
             end.record()
             end.synchronize()
-            if time.monotonic() >= deadline:
-                return None
-            elapsed = start.elapsed_time(end) / (32 * count)
-            if not 0.0 < elapsed < float("inf"):
-                return None
-            samples.append(elapsed)
+            samples.append(start.elapsed_time(end) / (32 * count))
         return statistics.median(samples)
 
     def run(self, name, layer, x, weight, output):
