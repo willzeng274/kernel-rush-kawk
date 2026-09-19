@@ -8,7 +8,7 @@ import triton
 from engine_base import Engine as BaseEngine
 from chunk_graph import DecodeChunks
 from native_layout import NativeLayout
-from lt_search import TunedLayout
+from wide_gemv import WideGemvLayout
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
 from prefill_kernels import prefill_qkv_rope_cache_kernel
 
@@ -41,8 +41,9 @@ class Engine(BaseEngine):
                            for k, v in zip(self.keys, self.values)]
         self.prefill_last_normalized = self.prefill_normalized.view(batch, prompt, self.h)[:, -1, :]
         if self.native_layout is None:
-            native = NativeLayout(self, self._layout_deadline)
-            self.native_layout = TunedLayout(native, self, self._layout_deadline)
+            self.native_layout = NativeLayout(self, self._layout_deadline)
+            self.native_layout = WideGemvLayout(
+                self, self.native_layout, self._layout_deadline)
 
     def _prefill_eager(self):
         rows = self.prefill_rows
