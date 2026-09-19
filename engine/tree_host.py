@@ -1,7 +1,6 @@
 """Exact request-local two-continuation tree and independent output progress."""
 import time
 from recycled_host import RequestState, Plan
-from top2_host import validate_ranked, record_ranked
 
 PARENTS = (-1, 0, 1, 2, 3, 0, 5, 6)
 DEPTHS = (0, 1, 2, 3, 4, 1, 2, 3)
@@ -107,13 +106,11 @@ class TreeState(RequestState):
         self._outstanding = plan
         return plan
 
-    def commit(self, plan, predictions, ranked=None):
+    def commit(self, plan, predictions):
         if (plan is not self._outstanding or plan.nonce is not self.nonce or
                 plan.epoch != self.epoch or plan.lengths != tuple(self.lengths) or
                 plan.pending != tuple(self.pending)):
             raise ValueError("stale, foreign or mutated verification plan")
-        if ranked is not None:
-            validate_ranked(predictions, ranked, self.batch, plan.width)
         if len(predictions) != self.batch or any(len(p) != plan.width for p in predictions):
             raise ValueError("one prediction per verifier node required")
         paths = []
@@ -123,10 +120,7 @@ class TreeState(RequestState):
                 if active & (1 << row):
                     if row:
                         contexts[row] = (contexts[PARENTS[row]] + [nodes[row]])[-8:]
-                    if ranked is None:
-                        self.tables[b].record(contexts[row], ys[row], observed=False)
-                    else:
-                        record_ranked(self.tables[b], contexts[row], ranked[b][row])
+                    self.tables[b].record(contexts[row], ys[row], observed=False)
             visited, accepted = [], []
             node = 0
             while active & (1 << node):
