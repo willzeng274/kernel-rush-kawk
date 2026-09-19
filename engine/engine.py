@@ -12,6 +12,7 @@ from wide_gemv import WideGemvLayout
 from hopper_gemm import HopperGemmLayout
 from hopper_tiles import HopperTilesLayout
 from persistent_vector import PersistentVectorLayout
+from packed_word import PackedWordLayout
 from fused_cache_attention import FusedCacheAttention
 from dense_prefill import DensePrefill
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
@@ -54,6 +55,8 @@ class Engine(BaseEngine):
             self.native_layout = HopperTilesLayout(
                 self, self.native_layout, self._layout_deadline)
             self.native_layout = PersistentVectorLayout(
+                self, self.native_layout, self._layout_deadline)
+            self.native_layout = PackedWordLayout(
                 self, self.native_layout, self._layout_deadline)
 
         self.dense_prefill = DensePrefill(self, self._layout_deadline)
