@@ -179,7 +179,7 @@ class Engine:
         for idx, layer in enumerate(self.layers):
             a, m = layer.self_attn, layer.mlp
             qkv_w, gu_w = self.packed[idx]
-            self.native_backend.run_decode("qkv", idx, self.normalized, qkv_w, self.qkv)
+            self.native_layout.run("qkv", idx, self.normalized, qkv_w, self.qkv)
             qkv_rope_cache_kernel[(b, 40)](
                 self.qkv, a.q_norm.weight, a.k_norm.weight,
                 self.cos, self.sin, self.position, self.query,
@@ -197,19 +197,19 @@ class Engine:
                 self.splits, triton.next_power_of_2(self.splits),
                 num_warps=4,
             )
-            self.native_backend.run_decode("output", idx, self.attention,
+            self.native_layout.run("output", idx, self.attention,
                                    a.o_proj.weight, self.branch)
             residual_norm_kernel[(b,)](
                 self.branch, self.hidden, layer.post_attention_layernorm.weight,
                 self.normalized, self.h, self.eps, 4096,
                 num_warps=4, enable_fp_fusion=False,
             )
-            self.native_backend.run_decode("gateup", idx, self.normalized, gu_w, self.gateup)
+            self.native_layout.run("gateup", idx, self.normalized, gu_w, self.gateup)
             swiglu_kernel[(triton.cdiv(b * self.i, 1024),)](
                 self.gateup, self.intermediate, self.i, b * self.i,
                 num_warps=4, enable_fp_fusion=False,
             )
-            self.native_backend.run_decode("down", idx, self.intermediate,
+            self.native_layout.run("down", idx, self.intermediate,
                                    m.down_proj.weight, self.branch)
             next_weight = (self.layers[idx + 1].input_layernorm.weight
                            if idx + 1 < len(self.layers) else self.base.norm.weight)
@@ -218,7 +218,7 @@ class Engine:
                 self.h, self.eps, 4096,
                 num_warps=4, enable_fp_fusion=False,
             )
-        self.native_backend.run_head("decode", self.normalized, self.model.lm_head.weight, self.logits)
+        torch.mm(self.normalized, self.model.lm_head.weight.t(), out=self.logits)
         torch.argmax(self.logits, dim=-1, out=self.ids)
         self.position.add_(1)
 
