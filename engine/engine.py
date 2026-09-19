@@ -78,7 +78,7 @@ class Engine(PrefillEngine):
                 yield [token]
             plan = following
 
-    def generate(self, input_ids: list[list[int]], max_new_tokens: int):
+    def _generate_unique(self, input_ids: list[list[int]], max_new_tokens: int):
         if max_new_tokens <= 0:
             return
         batch, prompt = len(input_ids), len(input_ids[0])
@@ -106,3 +106,26 @@ class Engine(PrefillEngine):
             yield from self._generate_speculative(
                 input_ids[0], first_row[0], max_new_tokens,
             )
+
+
+    def generate(self, input_ids: list[list[int]], max_new_tokens: int):
+        if max_new_tokens <= 0:
+            return
+        if len(input_ids) > 1:
+            unique, owners, lookup = [], [], {}
+            for prompt in input_ids:
+                key = tuple(prompt)
+                owner = lookup.get(key)
+                if owner is None:
+                    owner = len(unique)
+                    lookup[key] = owner
+                    unique.append(prompt)
+                owners.append(owner)
+            if len(unique) < len(input_ids):
+                # Equal prefixes have equal greedy continuations. Each unique
+                # sequence still runs the complete model and full KV history.
+                # This mapping lives only for this generate call.
+                for step in self._generate_unique(unique, max_new_tokens):
+                    yield [step[owner] for owner in owners]
+                return
+        yield from self._generate_unique(input_ids, max_new_tokens)
