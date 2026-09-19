@@ -9,20 +9,18 @@ from offline_sm90 import OUT
 def main():
     OUT.mkdir(exist_ok=True)
     configs = []
-    for batch in (8,16,24,32):
-        for rows,bk,splits in ((64,256,1),(128,128,1)):
-            configs.append(('offline_sm90.py', dict(
-                id=f'tree_gu_m{batch}_tile{rows}_k{bk}_s{splits}',
-                rows=rows, B=batch, K=2560, BK=bk, SPLITS=splits,
-                stages=2, planes=False, part_type='*bf16')))
-    configs.append(('offline_sm90.py', dict(
-        id='tree_gu_m8_tile128_k128_s2', rows=128, B=8, K=2560,
-        BK=128, SPLITS=2, stages=2, planes=False)))
-    configs.append(('offline_chain.py', dict(
-        id='tree_gu_m8_merge_s2', kernel='_hopper_merge', cap=544,width=8,
-        source='hopper_gemm.py',warps=4,fusion=True,stages=3,
-        constants=dict(SPLITS=2,BLOCK=512),
-        signature_types=dict(PART='*fp32',OUT='*bf16',N='i32',OUT_ROW='i32',TOTAL='i32'))))
+    for name,n,k in (('gateup',19456,2560),('down',2560,9728),
+                      ('qkv',6144,2560),('output',2560,4096)):
+        first_excluded = 8 * 10**12 // (2 * n * k * 6) + 1
+        for m in (first_excluded,65536):
+            for bm,bn in ((128,128),(64,256)):
+                for sms in (114,132):
+                    configs.append(('offline_chain.py', dict(
+                        id=f'dense_{name}_m{m}_tile{bm}x{bn}_sms{sms}',
+                        kernel='_persistent_dense', source='dense_prefill.py',
+                        cap=544,width=1,warps=4,stages=4,fusion=True,
+                        constants=dict(M=m,N=n,K=k,SMS=sms,BM=bm,BN=bn,BK=64,GROUP=8),
+                        signature_types=dict(X='*bf16',W='*bf16',OUT='*bf16'))))
     results = []
     for script, config in configs:
         try:
