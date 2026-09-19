@@ -9,29 +9,23 @@ from offline_sm90 import OUT
 def main():
     OUT.mkdir(exist_ok=True)
     configs = []
-    for index, (rows, batch, k, bk, splits, stages) in enumerate(
-            [(64, 4, 2560, 128, 8, 3), (64, 16, 4096, 128, 4, 3),
-             (64, 32, 9728, 128, 1, 3), (64, 4, 2560, 256, 4, 2),
-             (64, 32, 9728, 256, 1, 2), (128, 4, 2560, 128, 8, 2),
-             (128, 16, 4096, 128, 4, 2), (128, 32, 9728, 128, 1, 2)]):
-        for variant in ('u8_prmt',):
-            configs.append(('offline_sm90.py', dict(
-                id=f'packed_{index}_{variant}', rows=rows, B=batch, K=k, BK=bk,
-                SPLITS=splits, stages=stages, planes=True,
-                source=f'planes_{variant}.py')))
     for cap in (255, 256, 257, 544, 640, 2080, 4096, 4097):
-        for warps in (8,):
-            for old in (False,):
-                configs.append(('offline_chain.py', dict(
-                    kernel='chain_attention_kernel', cap=cap, width=4, warps=warps,
-                    id=f'attn_c{cap}_warp{warps}_' + ('old' if old else 'hoisted'),
-                    source='recycled_kernels_old.py' if old else 'recycled_kernels.py')))
-    for cap in (255, 256, 257, 544, 640, 2080, 4096, 4097):
-        for kind in ('attention_split', 'fused_attention'):
-            for warps in (4, 8):
-                configs.append(('offline_chain.py', dict(
-                    kernel='single_' + kind + '_kernel', cap=cap, width=1, warps=warps,
-                    id=f'single_{kind}_c{cap}_warp{warps}', source='recycled_single.py')))
+        splits = (cap + 7 + 255) // 256
+        constants = dict(CAP=cap, W=8, EPS=1e-6, D=128, SPLITS=splits,
+                         SCALE=128**-.5, BLOCK_N=256,
+                         BLOCK_S=1 << (splits-1).bit_length(), ROWS=64, BLOCK=128)
+        for kind in ('qkv', 'attention', 'compact'):
+            configs.append(('offline_chain.py', dict(
+                kernel='tree_' + kind + '_kernel', cap=cap, width=8,
+                warps=8 if kind == 'attention' else 4,
+                id=f'tree_{kind}_c{cap}_w8', source='tree_kernels.py', constants=constants)))
+        configs.append(('offline_chain.py', dict(
+            kernel='chain_merge_kernel', cap=cap, width=8, warps=4,
+            id=f'tree_merge_c{cap}_w8', source='recycled_kernels.py', constants=constants)))
+    for batch in range(1,9):
+        configs.append(('offline_chain.py', dict(
+            kernel='chain_ids_kernel', cap=544, width=8, batch=batch,
+            id=f'tree_ids_b{batch}_w8', source='recycled_kernels.py')))
     results = []
     for script, config in configs:
         try:
