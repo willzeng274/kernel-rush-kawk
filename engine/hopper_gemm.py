@@ -58,7 +58,7 @@ class HopperPlan:
     def __init__(self, x, weight, output, block_k):
         self.batch, self.k = x.shape
         self.n = weight.shape[0]
-        if (not 1 <= self.batch <= 32 or self.k not in (2560, 4096, 9728)
+        if (not 2 <= self.batch <= 32 or self.k not in (2560, 4096, 9728)
                 or tuple(weight.shape) != (self.n, self.k)
                 or tuple(output.shape) != (self.batch, self.n)
                 or block_k not in (128, 256)):
@@ -111,7 +111,7 @@ class HopperGemmLayout(WideGemvLayout):
         self.native, self.batch = native, engine.batch
         self.plans = {}
         self.device = engine.normalized.device
-        if not 1 <= self.batch <= 32:
+        if not 2 <= self.batch <= 32:
             return
         deadline = min(deadline, time.monotonic() + 50.0)
         groups = (

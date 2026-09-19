@@ -11,6 +11,7 @@ from native_layout import NativeLayout
 from wide_gemv import WideGemvLayout
 from hopper_gemm import HopperGemmLayout
 from hopper_tiles import HopperTilesLayout
+from word_hopper import WordHopperLayout
 from persistent_vector import PersistentVectorLayout
 from fused_cache_attention import FusedCacheAttention
 from dense_prefill import DensePrefill
@@ -52,6 +53,8 @@ class Engine(BaseEngine):
             self.native_layout = HopperGemmLayout(
                 self, self.native_layout, self._layout_deadline)
             self.native_layout = HopperTilesLayout(
+                self, self.native_layout, self._layout_deadline)
+            self.native_layout = WordHopperLayout(
                 self, self.native_layout, self._layout_deadline)
             self.native_layout = PersistentVectorLayout(
                 self, self.native_layout, self._layout_deadline)

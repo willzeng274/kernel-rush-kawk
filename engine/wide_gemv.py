@@ -217,22 +217,16 @@ class WideGemvLayout:
                 else:
                     plan(x, weight, output)
 
-        try:
-            with torch.cuda.stream(stream):
-                launch()
-        finally:
-            # A later launch may fail after earlier work reached this stream.
-            # Order that work before the caller releases candidate buffers.
-            current.wait_stream(stream)
+        with torch.cuda.stream(stream):
+            launch()
+        current.wait_stream(stream)
         torch.cuda.synchronize(x.device)
         if time.monotonic() >= deadline:
             return None
         graph = torch.cuda.CUDAGraph()
-        try:
-            with torch.cuda.graph(graph, stream=stream):
-                launch()
-        finally:
-            current.wait_stream(stream)
+        with torch.cuda.graph(graph, stream=stream):
+            launch()
+        current.wait_stream(stream)
         if time.monotonic() >= deadline:
             return None
         graph.replay()
