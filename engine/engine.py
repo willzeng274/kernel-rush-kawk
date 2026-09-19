@@ -8,6 +8,7 @@ import triton
 from engine_base import Engine as BaseEngine
 from chunk_graph import DecodeChunks
 from native_layout import NativeLayout
+from native_backend import NativeBackend
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
 from prefill_kernels import prefill_qkv_rope_cache_kernel
 
@@ -16,6 +17,7 @@ class Engine(BaseEngine):
     def __init__(self, model_path: str) -> None:
         self._layout_deadline = time.monotonic() + 180.0
         self.native_layout = None
+        self.native_backend = None
         super().__init__(model_path)
 
     def _allocate(self, batch, prompt, output):
@@ -41,6 +43,7 @@ class Engine(BaseEngine):
         self.prefill_last_normalized = self.prefill_normalized.view(batch, prompt, self.h)[:, -1, :]
         if self.native_layout is None:
             self.native_layout = NativeLayout(self, self._layout_deadline)
+        self.native_backend = NativeBackend(self, self._layout_deadline)
 
     def _prefill_eager(self):
         rows = self.prefill_rows
@@ -54,7 +57,7 @@ class Engine(BaseEngine):
         for idx, layer in enumerate(self.layers):
             attention, mlp = layer.self_attn, layer.mlp
             qkv_weight, gateup_weight = self.packed[idx]
-            torch.mm(self.prefill_normalized, qkv_weight.t(), out=self.prefill_qkv)
+            self.native_backend.run_prefill("qkv", self.prefill_normalized, qkv_weight, self.prefill_qkv)
             prefill_qkv_rope_cache_kernel[(triton.cdiv(rows, 4), 40)](
                 self.prefill_qkv, attention.q_norm.weight, attention.k_norm.weight,
                 self.cos, self.sin, self.prefill_query,
@@ -69,20 +72,20 @@ class Engine(BaseEngine):
                 enable_gqa=True,
             )
             attended_rows = attended.transpose(1, 2).reshape(rows, 4096)
-            torch.mm(attended_rows, attention.o_proj.weight.t(), out=self.prefill_branch)
+            self.native_backend.run_prefill("output", attended_rows, attention.o_proj.weight, self.prefill_branch)
             residual_norm_kernel[(rows,)](
                 self.prefill_branch, self.prefill_hidden,
                 layer.post_attention_layernorm.weight, self.prefill_normalized,
                 self.h, self.eps, 4096,
                 num_warps=4, enable_fp_fusion=False,
             )
-            torch.mm(self.prefill_normalized, gateup_weight.t(), out=self.prefill_gateup)
+            self.native_backend.run_prefill("gateup", self.prefill_normalized, gateup_weight, self.prefill_gateup)
             swiglu_kernel[(triton.cdiv(rows * self.i, 1024),)](
                 self.prefill_gateup, self.prefill_intermediate,
                 self.i, rows * self.i,
                 num_warps=4, enable_fp_fusion=False,
             )
-            torch.mm(self.prefill_intermediate, mlp.down_proj.weight.t(), out=self.prefill_branch)
+            self.native_backend.run_prefill("down", self.prefill_intermediate, mlp.down_proj.weight, self.prefill_branch)
             next_weight = (self.layers[idx + 1].input_layernorm.weight
                            if idx + 1 < len(self.layers) else self.base.norm.weight)
             residual_norm_kernel[(rows,)](
@@ -91,7 +94,7 @@ class Engine(BaseEngine):
                 num_warps=4, enable_fp_fusion=False,
             )
         # Only the last prompt position contributes the first generated token.
-        torch.mm(self.prefill_last_normalized, self.model.lm_head.weight.t(), out=self.logits)
+        self.native_backend.run_head("prefill", self.prefill_last_normalized, self.model.lm_head.weight, self.logits)
         torch.argmax(self.logits, dim=-1, out=self.ids)
 
     def _capture_prefill(self):
