@@ -1,5 +1,9 @@
 # Decode Qwen3 4B faster
 
+KAWK baseline: the first submission uses the unchanged official starter engine.
+Pushes to this repository's main branch submit the engine folder and start an official run.
+
+
 Decode `Qwen/Qwen3-4B-Instruct-2507` at revision
 `cdbee75f17c01a7cc42f958dc650907174af0554`, BF16, on one H100
 
