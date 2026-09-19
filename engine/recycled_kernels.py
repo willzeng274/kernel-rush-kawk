@@ -70,11 +70,12 @@ def chain_attention_kernel(Q, K, V, SK, SV, META, PART, PMAX, PSUM,
     scratch = (scratch_row >= 0) & (scratch_row < active) & (t < CAP)
     q = tl.load(Q + (((b * W + row[:, None]) * 32 + head[:, None]) * D + d[None, :]),
                 row[:, None] < W, 0)
-    kpast = tl.load(K + ((b * 8 + kh) * CAP + t[None, :]) * D + d[:, None],
-                    committed[None, :], 0)
-    knew = tl.load(SK + ((b * 8 + kh) * W + scratch_row[None, :]) * D + d[:, None],
-                   scratch[None, :], 0)
-    k = tl.where(committed[None, :], kpast, knew)
+    # Select an address before loading so only one K tile is live. Loading
+    # both prefix and scratch tiles then selecting values spills on sm90.
+    kptr = tl.where(committed[None, :],
+                    K + ((b * 8 + kh) * CAP + t[None, :]) * D + d[:, None],
+                    SK + ((b * 8 + kh) * W + scratch_row[None, :]) * D + d[:, None])
+    k = tl.load(kptr, (committed | scratch)[None, :], 0)
     score = tl.dot(q, k).to(tl.float32) * SCALE
     visible = ((row[:, None] < active) & (committed[None, :] | scratch[None, :])
                & (t[None, :] <= length + row[:, None]))
@@ -82,11 +83,10 @@ def chain_attention_kernel(Q, K, V, SK, SV, META, PART, PMAX, PSUM,
     maximum = tl.maximum(tl.max(score, 1), -1.0e30)
     p = tl.exp(score - maximum[:, None])
     denominator = tl.sum(p, 1)
-    vpast = tl.load(V + ((b * 8 + kh) * CAP + t[:, None]) * D + d[None, :],
-                    committed[:, None], 0)
-    vnew = tl.load(SV + ((b * 8 + kh) * W + scratch_row[:, None]) * D + d[None, :],
-                   scratch[:, None], 0)
-    v = tl.where(committed[:, None], vpast, vnew)
+    vptr = tl.where(committed[:, None],
+                    V + ((b * 8 + kh) * CAP + t[:, None]) * D + d[None, :],
+                    SV + ((b * 8 + kh) * W + scratch_row[:, None]) * D + d[None, :])
+    v = tl.load(vptr, (committed | scratch)[:, None], 0)
     numerator = tl.dot(p.to(tl.bfloat16), v).to(tl.float32)
     outhead = (b * W + row) * 32 + head
     tl.store(PMAX + outhead * SPLITS + split, maximum, row < W)

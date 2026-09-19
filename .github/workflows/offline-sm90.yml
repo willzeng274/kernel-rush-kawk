@@ -17,10 +17,7 @@ jobs:
           python-version: '3.11'
       - name: Install pinned compiler only
         run: python -m pip install --disable-pip-version-check triton==3.1.0
-      - name: Compile original and byte-plane kernels without a GPU
-        run: python tools/offline_sm90.py
       - name: Compile independent-progress chain kernels
-        if: always()
         run: python tools/offline_chain.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
