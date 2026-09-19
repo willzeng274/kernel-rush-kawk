@@ -9,18 +9,16 @@ from offline_sm90 import OUT
 def main():
     OUT.mkdir(exist_ok=True)
     configs = []
-    for name,n,k in (('gateup',19456,2560),('down',2560,9728),
-                      ('qkv',6144,2560),('output',2560,4096)):
-        first_excluded = 8 * 10**12 // (2 * n * k * 6) + 1
-        for m in (first_excluded,65536):
-            for bm,bn in ((128,128),(64,256)):
-                for sms in (114,132):
-                    configs.append(('offline_chain.py', dict(
-                        id=f'dense_{name}_m{m}_tile{bm}x{bn}_sms{sms}',
-                        kernel='_persistent_dense', source='dense_prefill.py',
-                        cap=544,width=1,warps=4,stages=4,fusion=True,
-                        constants=dict(M=m,N=n,K=k,SMS=sms,BM=bm,BN=bn,BK=64,GROUP=8),
-                        signature_types=dict(X='*bf16',W='*bf16',OUT='*bf16'))))
+    for m in (33,64,65,128,129,256):
+        tiles=((128,128),(64,128)) if m<=64 else ((128,128),)
+        for bm,bn in tiles:
+            for sms in (114,132):
+                configs.append(('offline_chain.py', dict(
+                    id=f'large_decode_gu_m{m}_tile{bm}x{bn}_sms{sms}',
+                    kernel='_persistent_dense', source='dense_prefill.py',
+                    cap=544,width=1,warps=4,stages=4,fusion=True,
+                    constants=dict(M=m,N=19456,K=2560,SMS=sms,BM=bm,BN=bn,BK=64,GROUP=8),
+                    signature_types=dict(X='*bf16',W='*bf16',OUT='*bf16'))))
     results = []
     for script, config in configs:
         try:
