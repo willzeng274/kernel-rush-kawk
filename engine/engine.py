@@ -1,190 +1,266 @@
-"""Qwen3 engine with native HF layers and a persistent single-step CUDA graph.
-
-The first forward uses ordinary causal SDPA over the exact prompt. Decode uses
-fixed-address BF16 K/V and an explicit device-position mask. Only exact
-pointwise fusions replace reference model operations.
-"""
-
-from types import SimpleNamespace
-
+"""BF16 Qwen3: packed causal SDPA prefill and fused graph decode."""
+import types
 import torch
+import torch.nn.functional as F
+import triton
 from transformers import AutoModelForCausalLM
+from transformers.cache_utils import Cache
+from transformers.models.qwen3.modeling_qwen3 import apply_rotary_pos_emb
+from custom_kernels import (
+    rms_kernel, embedding_norm_kernel, residual_norm_kernel,
+    qkv_rope_cache_kernel, attention_split_kernel, attention_merge_kernel,
+    swiglu_kernel,
+)
 
-from fused_ops import FusedMLP, FusedRMSNorm
 
+class FusedRMSNorm(torch.nn.Module):
+    def __init__(self, original):
+        super().__init__()
+        self.weight = original.weight
+        self.variance_epsilon = original.variance_epsilon
 
-class FixedKVCache:
-    """Layer-local persistent [batch, kv_heads, capacity, head_dim] buffers.
-
-    HF layer calls only require update(). During prompt prefill update returns
-    the freshly initialized prefix, allowing ordinary causal Flash SDPA. During
-    graph decode it returns full capacity, whose unused tail is explicitly
-    masked by the engine. No host reads of position happen in update().
-    """
-
-    def __init__(self, config, batch, capacity, device):
-        shape = (
-            batch, config.num_key_value_heads, capacity,
-            getattr(config, "head_dim", config.hidden_size // config.num_attention_heads),
+    def forward(self, x):
+        # Qwen projections and layer residuals are contiguous in the native path.
+        x = x.contiguous()
+        out = torch.empty_like(x)
+        width = x.shape[-1]
+        rms_kernel[(x.numel() // width,)](
+            x, self.weight, out, width, self.variance_epsilon,
+            triton.next_power_of_2(width), num_warps=4, enable_fp_fusion=False,
         )
-        self.key_cache = [
-            torch.zeros(shape, dtype=torch.bfloat16, device=device)
-            for _ in range(config.num_hidden_layers)
-        ]
-        self.value_cache = [torch.zeros_like(k) for k in self.key_cache]
-        self.prefill = True
+        return out
 
-    def update(self, key, value, layer_idx, cache_kwargs=None):
-        k = self.key_cache[layer_idx]
-        v = self.value_cache[layer_idx]
-        if self.prefill:
-            length = key.shape[2]
-            k[:, :, :length, :].copy_(key)
-            v[:, :, :length, :].copy_(value)
-            return k[:, :, :length, :], v[:, :, :length, :]
-        position = cache_kwargs["cache_position"]
-        k.index_copy_(2, position, key)
-        v.index_copy_(2, position, value)
-        return k, v
+
+class PrefillCache(Cache):
+    """Fresh full-prompt prefill writes static storage, returns only prompt KV.
+
+    Returning the original prompt tensors preserves native SDPA's causal shape
+    and never lets it inspect uninitialized static capacity.
+    """
+    def __init__(self, keys, values):
+        super().__init__()
+        self.keys = keys
+        self.values = values
+        self.length = 0
+
+    def get_seq_length(self, layer_idx=0):
+        return self.length
+
+    def get_max_cache_shape(self):
+        return None
+
+    def update(self, key_states, value_states, layer_idx, cache_kwargs=None):
+        length = key_states.shape[-2]
+        self.keys[layer_idx][:, :, :length, :].copy_(key_states)
+        self.values[layer_idx][:, :, :length, :].copy_(value_states)
+        if layer_idx == 0:
+            self.length = length
+        return key_states, value_states
+
+
+# These adapters only run on full causal prefill; custom decode bypasses them.
+def packed_prefill_attention(self, hidden_states, position_embeddings,
+                             attention_mask=None, past_key_value=None,
+                             cache_position=None, **kwargs):
+    shape = hidden_states.shape[:-1]
+    projected = F.linear(hidden_states, self._packed_qkv)
+    q, k, v = projected.split((4096, 1024, 1024), dim=-1)
+    q = self.q_norm(q.reshape(*shape, 32, 128)).transpose(1, 2)
+    k = self.k_norm(k.reshape(*shape, 8, 128)).transpose(1, 2)
+    v = v.reshape(*shape, 8, 128).transpose(1, 2)
+    cos, sin = position_embeddings
+    q, k = apply_rotary_pos_emb(q, k, cos, sin)
+    if past_key_value is not None:
+        k, v = past_key_value.update(k, v, self.layer_idx,
+                                    {"cos": cos, "sin": sin,
+                                     "cache_position": cache_position})
+    output = F.scaled_dot_product_attention(
+        q, k, v, attn_mask=attention_mask, dropout_p=0.0,
+        is_causal=(attention_mask is None and q.shape[-2] > 1),
+        scale=self.scaling, enable_gqa=True,
+    )
+    output = output.transpose(1, 2).reshape(*shape, 4096).contiguous()
+    return self.o_proj(output), None
+
+
+def packed_prefill_mlp(self, x):
+    gu = F.linear(x, self._packed_gateup)
+    out = torch.empty((*x.shape[:-1], 9728), device=x.device, dtype=x.dtype)
+    size = out.numel()
+    swiglu_kernel[(triton.cdiv(size, 1024),)](
+        gu, out, 9728, size, num_warps=4, enable_fp_fusion=False,
+    )
+    return self.down_proj(out)
 
 
 class Engine:
     def __init__(self, model_path: str) -> None:
         torch.backends.cuda.matmul.allow_tf32 = False
         torch.backends.cudnn.allow_tf32 = False
-        self.device = torch.device("cuda:0")
+        torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = False
         self.model = AutoModelForCausalLM.from_pretrained(
-            model_path,
-            torch_dtype=torch.bfloat16,
-            attn_implementation="sdpa",
-            local_files_only=True,
-        ).eval().to(self.device)
-        base = self.model.model
-        base.norm = FusedRMSNorm(base.norm)
-        for layer in base.layers:
-            layer.input_layernorm = FusedRMSNorm(layer.input_layernorm)
-            layer.post_attention_layernorm = FusedRMSNorm(layer.post_attention_layernorm)
-            layer.self_attn.q_norm = FusedRMSNorm(layer.self_attn.q_norm)
-            layer.self_attn.k_norm = FusedRMSNorm(layer.self_attn.k_norm)
-            layer.mlp = FusedMLP(layer.mlp)
-        self.state = None
+            model_path, torch_dtype=torch.bfloat16,
+            attn_implementation="sdpa", local_files_only=True,
+        ).eval().to("cuda:0")
+        self.base = self.model.model
+        self.layers = list(self.base.layers)
+        self.h = self.model.config.hidden_size
+        self.i = self.model.config.intermediate_size
+        self.eps = self.model.config.rms_norm_eps
+        assert self.h == 2560 and self.i == 9728
+        assert self.model.config.num_attention_heads == 32
+        assert self.model.config.num_key_value_heads == 8
+        assert self.layers[0].self_attn.head_dim == 128
+        self.base.norm = FusedRMSNorm(self.base.norm)
+        self.packed = []
+        # Rebind native projections to packed slices, so packing does not retain
+        # a duplicate checkpoint. These row slices remain fully contiguous.
+        with torch.inference_mode():
+            for layer in self.layers:
+                a, m = layer.self_attn, layer.mlp
+                layer.input_layernorm = FusedRMSNorm(layer.input_layernorm)
+                layer.post_attention_layernorm = FusedRMSNorm(layer.post_attention_layernorm)
+                a.q_norm = FusedRMSNorm(a.q_norm)
+                a.k_norm = FusedRMSNorm(a.k_norm)
+                qkv = torch.cat((a.q_proj.weight, a.k_proj.weight, a.v_proj.weight), dim=0)
+                gu = torch.cat((m.gate_proj.weight, m.up_proj.weight), dim=0)
+                a.q_proj.weight = torch.nn.Parameter(qkv[:4096], requires_grad=False)
+                a.k_proj.weight = torch.nn.Parameter(qkv[4096:5120], requires_grad=False)
+                a.v_proj.weight = torch.nn.Parameter(qkv[5120:], requires_grad=False)
+                m.gate_proj.weight = torch.nn.Parameter(gu[:self.i], requires_grad=False)
+                m.up_proj.weight = torch.nn.Parameter(gu[self.i:], requires_grad=False)
+                self.packed.append((qkv, gu))
+                a._packed_qkv = qkv
+                m._packed_gateup = gu
+                a.forward = types.MethodType(packed_prefill_attention, a)
+                m.forward = types.MethodType(packed_prefill_mlp, m)
+        self.shape = None
+        self.graph = None
 
-    def _new_state(self, batch, prompt_length, max_new_tokens):
-        # The final emitted token does not need to be consumed by the model.
-        capacity = prompt_length + max_new_tokens
-        state = SimpleNamespace(
-            shape=(batch, prompt_length, max_new_tokens),
-            cache=FixedKVCache(self.model.config, batch, capacity, self.device),
-            token=torch.zeros((batch, 1), dtype=torch.long, device=self.device),
-            position=torch.full((1,), prompt_length, dtype=torch.long, device=self.device),
-            key_positions=torch.arange(capacity, dtype=torch.long, device=self.device),
-            prompt_positions=torch.arange(prompt_length, dtype=torch.long, device=self.device),
-            graph=None,
+    def _allocate(self, batch, prompt, output):
+        self.batch, self.prompt = batch, prompt
+        self.capacity = prompt + output
+        self.splits = triton.cdiv(self.capacity, 256)
+        device = "cuda:0"
+        def empty(*shape, dtype=torch.bfloat16):
+            return torch.empty(shape, device=device, dtype=dtype)
+        # Allocate each layer independently to avoid a second all-cache payload.
+        self.keys = [empty(batch, 8, self.capacity, 128) for _ in self.layers]
+        self.values = [empty(batch, 8, self.capacity, 128) for _ in self.layers]
+        self.ids = torch.zeros((batch,), device=device, dtype=torch.int64)
+        self.position = torch.full((1,), prompt, device=device, dtype=torch.int64)
+        self.hidden = empty(batch, self.h)
+        self.normalized = empty(batch, self.h)
+        self.qkv = empty(batch, 6144)
+        self.query = empty(batch, 32, 128)
+        self.attention = empty(batch, 4096)
+        self.branch = empty(batch, self.h)
+        self.gateup = empty(batch, 2 * self.i)
+        self.intermediate = empty(batch, self.i)
+        self.logits = empty(batch, self.model.config.vocab_size)
+        self.partial = empty(batch * 32, self.splits, 128, dtype=torch.float32)
+        self.pmax = empty(batch * 32, self.splits, dtype=torch.float32)
+        self.psum = empty(batch * 32, self.splits, dtype=torch.float32)
+        positions = torch.arange(self.capacity, device=device).unsqueeze(0)
+        self.cos, self.sin = self.base.rotary_emb(self.hidden, positions)
+        self.cos, self.sin = self.cos.contiguous(), self.sin.contiguous()
+        self.graph = None
+        self.shape = (batch, prompt, output)
+
+    def _step(self):
+        """Consume self.ids at self.position; replace IDs and advance position."""
+        b = self.batch
+        embedding_norm_kernel[(b,)](
+            self.ids, self.base.embed_tokens.weight,
+            self.layers[0].input_layernorm.weight,
+            self.hidden, self.normalized, self.h, self.eps, 4096,
+            num_warps=4, enable_fp_fusion=False,
         )
-        # Generate the table with the pinned HF implementation so both prefill
-        # and decode use precisely its frequency construction and BF16 cast.
-        dummy = torch.empty((), dtype=torch.bfloat16, device=self.device)
-        state.cos, state.sin = self.model.model.rotary_emb(
-            dummy, state.key_positions.unsqueeze(0)
-        )
-        return state
+        for idx, layer in enumerate(self.layers):
+            a, m = layer.self_attn, layer.mlp
+            qkv_w, gu_w = self.packed[idx]
+            torch.mm(self.normalized, qkv_w.t(), out=self.qkv)
+            qkv_rope_cache_kernel[(b, 40)](
+                self.qkv, a.q_norm.weight, a.k_norm.weight,
+                self.cos, self.sin, self.position, self.query,
+                self.keys[idx], self.values[idx], self.capacity, self.eps,
+                num_warps=4, enable_fp_fusion=False,
+            )
+            attention_split_kernel[(b, 8, self.splits)](
+                self.query, self.keys[idx], self.values[idx], self.position,
+                self.partial, self.pmax, self.psum,
+                self.capacity, self.splits, 128 ** -0.5,
+                num_warps=4, num_stages=1,
+            )
+            attention_merge_kernel[(b * 32,)](
+                self.partial, self.pmax, self.psum, self.attention,
+                self.splits, triton.next_power_of_2(self.splits),
+                num_warps=4,
+            )
+            torch.mm(self.attention, a.o_proj.weight.t(), out=self.branch)
+            residual_norm_kernel[(b,)](
+                self.branch, self.hidden, layer.post_attention_layernorm.weight,
+                self.normalized, self.h, self.eps, 4096,
+                num_warps=4, enable_fp_fusion=False,
+            )
+            torch.mm(self.normalized, gu_w.t(), out=self.gateup)
+            swiglu_kernel[(triton.cdiv(b * self.i, 1024),)](
+                self.gateup, self.intermediate, self.i, b * self.i,
+                num_warps=4, enable_fp_fusion=False,
+            )
+            torch.mm(self.intermediate, m.down_proj.weight.t(), out=self.branch)
+            next_weight = (self.layers[idx + 1].input_layernorm.weight
+                           if idx + 1 < len(self.layers) else self.base.norm.weight)
+            residual_norm_kernel[(b,)](
+                self.branch, self.hidden, next_weight, self.normalized,
+                self.h, self.eps, 4096,
+                num_warps=4, enable_fp_fusion=False,
+            )
+        torch.mm(self.normalized, self.model.lm_head.weight.t(), out=self.logits)
+        torch.argmax(self.logits, dim=-1, out=self.ids)
+        self.position.add_(1)
 
-    def _prefill(self, state, ids):
-        base = self.model.model
-        length = ids.shape[1]
-        state.cache.prefill = True
-        positions = state.prompt_positions
-        embeddings = (state.cos[:, :length, :], state.sin[:, :length, :])
-        x = base.embed_tokens(ids)
-        for layer in base.layers:
-            x = layer(
-                x,
-                attention_mask=None,
-                position_ids=positions.unsqueeze(0),
-                past_key_value=state.cache,
-                use_cache=True,
-                cache_position=positions,
-                position_embeddings=embeddings,
-            )[0]
-        # Normalization is independent across rows; only this final position
-        # can contribute to the requested last-position logits.
-        x = base.norm(x[:, -1:, :].contiguous())
-        logits = self.model.lm_head(x)
-        state.token.copy_(logits[:, -1, :].argmax(-1, keepdim=True))
-        state.position.fill_(length)
-        state.cache.prefill = False
-
-    def _decode(self, state):
-        base = self.model.model
-        position = state.position
-        # Keep the mask entirely on-device. This is required for a fixed-size
-        # cache: is_causal=False with a one-token query alone is insufficient.
-        allowed = state.key_positions <= position[0]
-        mask = torch.zeros_like(state.key_positions, dtype=torch.bfloat16)
-        mask.masked_fill_(~allowed, float("-inf"))
-        mask = mask.view(1, 1, 1, -1)
-        embeddings = (
-            state.cos.index_select(1, position),
-            state.sin.index_select(1, position),
-        )
-        x = base.embed_tokens(state.token)
-        for layer in base.layers:
-            x = layer(
-                x,
-                attention_mask=mask,
-                position_ids=position.unsqueeze(0),
-                past_key_value=state.cache,
-                use_cache=True,
-                cache_position=position,
-                position_embeddings=embeddings,
-            )[0]
-        logits = self.model.lm_head(base.norm(x))
-        state.token.copy_(logits[:, -1, :].argmax(-1, keepdim=True))
-        position.add_(1)
-        return state.token
-
-    def _capture(self, state):
-        # Compilation, cuBLAS initialization, and allocator setup occur in the
-        # untimed warmup generation. Use a non-default stream per CUDA docs.
-        saved_token = state.token.clone()
-        saved_position = state.position.clone()
-        stream = torch.cuda.Stream(device=self.device)
-        stream.wait_stream(torch.cuda.current_stream(self.device))
+    def _capture(self, first):
+        stream = torch.cuda.Stream()
+        stream.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(stream):
-            for _ in range(2):
-                state.token.copy_(saved_token)
-                state.position.copy_(saved_position)
-                self._decode(state)
-            state.token.copy_(saved_token)
-            state.position.copy_(saved_position)
-        torch.cuda.current_stream(self.device).wait_stream(stream)
-        torch.cuda.synchronize(self.device)
-        graph = torch.cuda.CUDAGraph()
-        with torch.cuda.graph(graph, stream=stream):
-            self._decode(state)
-        state.graph = graph
-        # Warmup/capture touch exactly the next slot, which the first real
-        # replay overwrites. Prompt slots are never altered by capture.
-        state.token.copy_(saved_token)
-        state.position.copy_(saved_position)
+            # Compile Triton and initialize cuBLAS before graph capture. Every
+            # trial starts at the same real prefix and only overwrites slot S.
+            for _ in range(3):
+                self.position.fill_(self.prompt)
+                self.ids.copy_(first)
+                self._step()
+        torch.cuda.current_stream().wait_stream(stream)
+        torch.cuda.synchronize()
+        self.position.fill_(self.prompt)
+        self.ids.copy_(first)
+        self.graph = torch.cuda.CUDAGraph()
+        with torch.cuda.graph(self.graph):
+            self._step()
+        torch.cuda.synchronize()
+        self.position.fill_(self.prompt)
+        self.ids.copy_(first)
 
     def generate(self, input_ids: list[list[int]], max_new_tokens: int):
         if max_new_tokens <= 0:
             return
-        batch = len(input_ids)
-        prompt_length = len(input_ids[0])
-        shape = (batch, prompt_length, max_new_tokens)
+        batch, prompt = len(input_ids), len(input_ids[0])
         with torch.inference_mode():
-            if self.state is None or self.state.shape != shape:
-                self.state = self._new_state(*shape)
-            state = self.state
-            ids = torch.tensor(input_ids, dtype=torch.long, device=self.device)
-            self._prefill(state, ids)
-            yield state.token[:, 0].tolist()
-            if max_new_tokens == 1:
-                return
-            if state.graph is None:
-                self._capture(state)
+            if self.shape != (batch, prompt, max_new_tokens):
+                self._allocate(batch, prompt, max_new_tokens)
+            current = torch.tensor(input_ids, device="cuda:0", dtype=torch.int64)
+            cache = PrefillCache(self.keys, self.values)
+            result = self.model(
+                input_ids=current, past_key_values=cache, use_cache=True,
+                logits_to_keep=1, return_dict=True,
+            )
+            first = result.logits[:, -1, :].argmax(dim=-1)
+            del result
+            if max_new_tokens > 1 and self.graph is None:
+                self._capture(first)
+            self.position.fill_(prompt)
+            self.ids.copy_(first)
+            yield self.ids.tolist()
             for _ in range(max_new_tokens - 1):
-                state.graph.replay()
-                yield state.token[:, 0].tolist()
+                self.graph.replay()
+                yield self.ids.tolist()
