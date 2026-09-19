@@ -10,6 +10,7 @@ from chunk_graph import DecodeChunks
 from native_layout import NativeLayout
 from wide_gemv import WideGemvLayout
 from hopper_gemm import HopperGemmLayout
+from fused_cache_attention import FusedCacheAttention
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
 from prefill_kernels import prefill_qkv_rope_cache_kernel
 
@@ -117,6 +118,7 @@ class Engine(BaseEngine):
         self.prefill_graph = graph
 
     def _capture_chunks(self, first, steps):
+        self.fused_cache_attention = FusedCacheAttention(self, self._layout_deadline)
         def decode():
             self._step()
             return self.ids

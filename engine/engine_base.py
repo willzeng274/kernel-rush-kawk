@@ -180,23 +180,7 @@ class Engine:
             a, m = layer.self_attn, layer.mlp
             qkv_w, gu_w = self.packed[idx]
             self.native_layout.run("qkv", idx, self.normalized, qkv_w, self.qkv)
-            qkv_rope_cache_kernel[(b, 40)](
-                self.qkv, a.q_norm.weight, a.k_norm.weight,
-                self.cos, self.sin, self.position, self.query,
-                self.keys[idx], self.values[idx], self.capacity, self.eps,
-                num_warps=4, enable_fp_fusion=False,
-            )
-            attention_split_kernel[(b, 8, self.splits)](
-                self.query, self.keys[idx], self.values[idx], self.position,
-                self.partial, self.pmax, self.psum,
-                self.capacity, self.splits, 128 ** -0.5,
-                num_warps=4, num_stages=1,
-            )
-            attention_merge_kernel[(b * 32,)](
-                self.partial, self.pmax, self.psum, self.attention,
-                self.splits, triton.next_power_of_2(self.splits),
-                num_warps=4,
-            )
+            self.fused_cache_attention.run(idx)
             self.native_layout.run("output", idx, self.attention,
                                    a.o_proj.weight, self.branch)
             residual_norm_kernel[(b,)](
