@@ -14,7 +14,7 @@ from hopper_tiles import HopperTilesLayout
 from persistent_vector import PersistentVectorLayout
 from fused_cache_attention import FusedCacheAttention
 from dense_prefill import DensePrefill
-from merge_norm import MergeNorm
+from tma_prefill import TmaPrefill
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
 from prefill_kernels import prefill_qkv_rope_cache_kernel
 
@@ -26,11 +26,9 @@ class Engine(BaseEngine):
         super().__init__(model_path)
 
     def _allocate(self, batch, prompt, output):
-        # Drop graphs and their old selector before replacing captured buffers.
-        self.graph = self.chunks = self.prefill_graph = None
-        self.native_chunks = self.verifier = None
-        self.merge_norm = None
         super()._allocate(batch, prompt, output)
+        self.chunks = None
+        self.prefill_graph = None
         self.prefill_rows = batch * prompt
         self.prefill_input = torch.empty((batch, prompt), dtype=torch.int64, device="cuda:0")
         def empty(width):
@@ -60,7 +58,7 @@ class Engine(BaseEngine):
                 self, self.native_layout, self._layout_deadline)
 
         self.dense_prefill = DensePrefill(self, self._layout_deadline)
-        self.merge_norm = MergeNorm(self, self._layout_deadline)
+        self.dense_prefill = TmaPrefill(self, self.dense_prefill, self._layout_deadline)
 
     def _prefill_eager(self):
         rows = self.prefill_rows

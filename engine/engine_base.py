@@ -181,33 +181,27 @@ class Engine:
             qkv_w, gu_w = self.packed[idx]
             self.native_layout.run("qkv", idx, self.normalized, qkv_w, self.qkv)
             self.fused_cache_attention.run(idx)
-            if not self.merge_norm.try_run(
-                    "output", idx, self.attention, a.o_proj.weight, self.hidden,
-                    layer.post_attention_layernorm.weight, self.normalized):
-                self.native_layout.run("output", idx, self.attention,
-                                       a.o_proj.weight, self.branch)
-                residual_norm_kernel[(b,)](
-                    self.branch, self.hidden, layer.post_attention_layernorm.weight,
-                    self.normalized, self.h, self.eps, 4096,
-                    num_warps=4, enable_fp_fusion=False,
-                )
+            self.native_layout.run("output", idx, self.attention,
+                                   a.o_proj.weight, self.branch)
+            residual_norm_kernel[(b,)](
+                self.branch, self.hidden, layer.post_attention_layernorm.weight,
+                self.normalized, self.h, self.eps, 4096,
+                num_warps=4, enable_fp_fusion=False,
+            )
             self.native_layout.run("gateup", idx, self.normalized, gu_w, self.gateup)
             swiglu_kernel[(triton.cdiv(b * self.i, 1024),)](
                 self.gateup, self.intermediate, self.i, b * self.i,
                 num_warps=4, enable_fp_fusion=False,
             )
+            self.native_layout.run("down", idx, self.intermediate,
+                                   m.down_proj.weight, self.branch)
             next_weight = (self.layers[idx + 1].input_layernorm.weight
                            if idx + 1 < len(self.layers) else self.base.norm.weight)
-            if not self.merge_norm.try_run(
-                    "down", idx, self.intermediate, m.down_proj.weight,
-                    self.hidden, next_weight, self.normalized):
-                self.native_layout.run("down", idx, self.intermediate,
-                                       m.down_proj.weight, self.branch)
-                residual_norm_kernel[(b,)](
-                    self.branch, self.hidden, next_weight, self.normalized,
-                    self.h, self.eps, 4096,
-                    num_warps=4, enable_fp_fusion=False,
-                )
+            residual_norm_kernel[(b,)](
+                self.branch, self.hidden, next_weight, self.normalized,
+                self.h, self.eps, 4096,
+                num_warps=4, enable_fp_fusion=False,
+            )
         self.native_layout.run("head", 0, self.normalized,
                                self.model.lm_head.weight, self.logits)
         torch.argmax(self.logits, dim=-1, out=self.ids)
