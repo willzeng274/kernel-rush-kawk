@@ -23,7 +23,7 @@ class Engine(BaseEngine):
     def __init__(self, model_path: str) -> None:
         self._engine_started = time.monotonic()
         self._layout_deadline = self._engine_started + 180.0
-        self._ilc_deadline = self._engine_started + 210.0
+        self._ilc_deadline = self._engine_started + 225.0
         self._attention_deadline = self._layout_deadline
         self._ilc_layout = None
         self._uncompressed_layout = None
@@ -65,16 +65,16 @@ class Engine(BaseEngine):
         self.dense_prefill = DensePrefill(self, self._layout_deadline)
 
         # Keep original selector ordering and its 180s deadline unchanged.
-        # Compression gets a separate cooperative 30s budget before capture,
-        # capped at engine-start+210s within the shared 300s load/warmup gate.
+        # Compression gets a separate cooperative 45s budget before capture,
+        # capped at engine-start+225s within the shared 300s load/warmup gate.
         if self._uncompressed_layout is None:
             self._uncompressed_layout = self.native_layout
         previous = self._ilc_layout
         ilc_started = time.monotonic()
         self._ilc_layout = ILCWeights(self, self._uncompressed_layout, self._ilc_deadline)
-        ilc_elapsed = max(0.0, min(30.0, time.monotonic() - ilc_started))
+        ilc_elapsed = max(0.0, min(45.0, time.monotonic() - ilc_started))
         # Added transport selection must not consume the preexisting FCA
-        # opportunity. Credit only its own elapsed time, once and at most 30s;
+        # opportunity. Credit only its own elapsed time, once and at most 45s;
         # earlier decode/Dense selectors retain their original 180s deadline.
         self._attention_deadline = max(
             self._attention_deadline,

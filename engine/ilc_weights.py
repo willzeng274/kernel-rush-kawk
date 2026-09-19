@@ -1,4 +1,4 @@
-"""Same-kernel, exact-BF16 Hopper inline compression experiment.
+"""Exact-BF16 raw and byte-plane Hopper inline compression selection.
 
 The accepted #32 dispatcher is the reference. Only exact known Triton plan
 classes can use a foreign pointer. Native cuBLAS families remain native. All
@@ -15,6 +15,8 @@ from triton.compiler.errors import CompilationError
 from triton.runtime.errors import OutOfResources
 
 from ilc_memory import Allocator, ILCUnavailable, Pointer
+from ilc_tma import PlaneDescriptor, verify_tma_compilation
+from byteplane_kernels import pack_byteplanes, check_byteplanes, launch_selected
 from native_layout import NativeLayout
 from wide_gemv import WideGemvLayout, WidePlan
 from persistent_vector import PersistentVectorLayout, PersistentPlan
@@ -86,15 +88,37 @@ def effective_plan(layout, name, x, weight, output):
     return None
 
 
-def material_win(times):
-    """Slow ON must beat fast real baseline by 20% and matched OFF by 15%."""
-    if (set(times) != {"original", "off", "on"}
+def material_win(times, baseline_kind="original"):
+    """Planes need 5% beyond an already-material raw winner, else 20%."""
+    if (baseline_kind not in ("original", "raw")
+            or set(times) != {"original", "off", "on"}
             or any(len(values) != 2 for values in times.values())
             or not all(math.isfinite(v) and v > 0
                        for values in times.values() for v in values)):
         return False
-    return (max(times["on"]) <= 0.80 * min(times["original"])
+    threshold = 0.95 if baseline_kind == "raw" else 0.80
+    return (max(times["on"]) <= threshold * min(times["original"])
             and max(times["on"]) <= 0.85 * min(times["off"]))
+
+
+
+def known_ptxas_failure(error):
+    message = str(error)
+    return (message.startswith("Internal Triton PTX codegen error:")
+            or message.startswith("`ptxas` failed with error code")
+            or (message.startswith("Please run `ptxas ")
+                and "bug in `ptxas`" in message))
+
+
+class Planes:
+    """Two independently owned uint8 [N,K] planes; only HI requests ILC."""
+    mode = "planes"
+    def __init__(self, lo, hi):
+        self.lo, self.hi = lo, hi
+        self.shape, self.device = lo.shape, lo.device
+        self.owners = (lo.owner, hi.owner)
+        self.descriptors = None
+
 
 
 class ILCWeights:
@@ -110,7 +134,7 @@ class ILCWeights:
         self.attempted = []
         self._previous = None
         self.supported_bytes = self.selected_bytes = self.total_bytes = 0
-        self.deadline = min(absolute_deadline, time.monotonic() + 30.0)
+        self.deadline = min(absolute_deadline, time.monotonic() + 45.0)
         groups = (
             ("gateup", engine.normalized, engine.gateup,
              [pair[1] for pair in engine.packed]),
@@ -175,7 +199,7 @@ class ILCWeights:
                 self.families[name] = (plan, selected,
                                        tuple(w.data_ptr() for w in weights))
                 self.selected_bytes += size
-                self._log(name, f"selected exact BF16 ILC; full-family logical bytes={size}")
+                self._log(name, f"selected exact {selected[0].mode if isinstance(selected[0], Planes) else 'raw'} ILC; full-family logical bytes={size}")
         self._report("selection complete")
 
     @property
@@ -224,13 +248,173 @@ class ILCWeights:
             # Covers every original bit, including signed zero/NaN payloads.
             if error_flag.item() != 0:
                 raise ILCUnavailable("full weight bit verification failed")
-        except BaseException:
+        except BaseException as error:
             if not self.allocator.quarantined:
                 self.allocator.retire([allocation])
+            if isinstance(error, RuntimeError) and known_ptxas_failure(error):
+                raise ILCUnavailable("candidate raw-copy PTX compilation failed") from error
             raise
         return pointer
 
+    @staticmethod
+    def _launch(plan, x, pointer, output):
+        if isinstance(pointer, Planes):
+            kinds = {WidePlan: "wide", PersistentPlan: "persistent",
+                     HopperPlan: "hopper", HopperTilesPlan: "tiles"}
+            kind = kinds.get(type(plan))
+            if kind is None:
+                raise ILCUnavailable("unsupported selected byte-plane plan")
+            return launch_selected(kind, plan, x, pointer.lo, pointer.hi, output, pointer.descriptors)
+        else:
+            plan(x, pointer, output)
+
+    def _candidate_run(self, plan, x, pointer, output):
+        try:
+            compiled = self._launch(plan, x, pointer, output)
+            if isinstance(pointer, Planes) and type(plan) in (HopperPlan, HopperTilesPlan):
+                key = (id(plan), getattr(compiled, "hash", None), x.stride(0), output.stride(0))
+                if not hasattr(self, "_compiled_planes"):
+                    self._compiled_planes = set()
+                if key not in self._compiled_planes:
+                    rows = 64 if type(plan) is HopperPlan else 128
+                    resources = verify_tma_compilation(compiled, rows, plan.block_k, plan.stages,
+                                                       triton.cdiv(plan.k, plan.splits * plan.block_k))
+                    self._log("compiled", f"plan={plan.name}; staged TMA bytes + WGMMA observed; {resources}")
+                    self._compiled_planes.add(key)
+        except RuntimeError as error:
+            if known_ptxas_failure(error):
+                raise ILCUnavailable("candidate projection PTX compilation failed") from error
+            raise
+
+    def _copy_planes(self, weight, compressed, error_flag, scratch, plan=None):
+        if time.monotonic() >= self.deadline:
+            raise ILCUnavailable("plane copy deadline")
+        if weight.dtype != torch.bfloat16 or not weight.is_contiguous():
+            raise ILCUnavailable("plane copy requires contiguous BF16")
+        owners = []
+        try:
+            # LO remains uncompressed in both matched controls; HI is the only
+            # compression flag that changes. Both rounded mappings are charged.
+            for mode in (False, compressed):
+                owners.append(self.allocator.allocate(weight.numel(), mode, scratch))
+            lo, hi = [Pointer(owner, weight.shape, torch.uint8, weight.device)
+                      for owner in owners]
+            grid = (triton.cdiv(weight.numel(), 4096),)
+            pack_byteplanes[grid](weight, lo, hi, weight.numel(), BLOCK=4096, num_warps=4)
+            error_flag.zero_()
+            check_byteplanes[grid](weight, lo, hi, error_flag, weight.numel(),
+                                   BLOCK=4096, num_warps=4)
+            if error_flag.item() != 0:
+                raise ILCUnavailable("full byte-plane reconstruction bit check failed")
+            result = Planes(lo, hi)
+            if type(plan) in (HopperPlan, HopperTilesPlan):
+                tile_n = 64 if type(plan) is HopperPlan else 128
+                result.descriptors = (PlaneDescriptor(lo, tile_n, plan.block_k),
+                                      PlaneDescriptor(hi, tile_n, plan.block_k))
+            return result
+        except BaseException as error:
+            if owners and not self.allocator.quarantined:
+                self.allocator.retire(owners)
+            if isinstance(error, RuntimeError) and known_ptxas_failure(error):
+                raise ILCUnavailable("candidate plane-copy PTX compilation failed") from error
+            raise
+
+    @staticmethod
+    def _owners(pointers):
+        return [owner for p in pointers for owner in
+                (p.owners if isinstance(p, Planes) else (p.owner,))]
+
     def _select(self, name, x, output, weights, plan, generator):
+        # One family transaction, one deadline, and no second whole-model pass.
+        # Fully retain a raw winner before attempting a new plane compilation.
+        raw_started = time.monotonic()
+        try:
+            raw = self._select_raw(name, x, output, weights, plan, generator)
+        except (ILCUnavailable, torch.cuda.OutOfMemoryError,
+                CompilationError, OutOfResources) as error:
+            self._log(name, f"raw candidate rejected: {type(error).__name__}: {error}")
+            raw = None
+            torch.cuda.empty_cache()
+        elapsed = max(0.0, time.monotonic() - raw_started)
+        # Leave credible headroom for a new selected-kernel compilation, pool
+        # checks/graphs and a full-family extension. Cooperative, not preemptive.
+        required_seconds = max(8.0, 2.0 * elapsed)
+        if self.deadline - time.monotonic() < required_seconds:
+            self._log(name, f"planes skipped: need {required_seconds:.2f}s credible budget")
+            return raw
+        baseline = None if raw is None else (plan, raw)
+        try:
+            planes = self._select_planes(name, x, output, weights, plan, generator, baseline)
+        except (ILCUnavailable, torch.cuda.OutOfMemoryError,
+                CompilationError, OutOfResources) as error:
+            self._log(name, f"planes rejected; retaining complete baseline: {type(error).__name__}: {error}")
+            torch.cuda.empty_cache()
+            return raw
+        if planes is None:
+            return raw
+        # _select_planes has drained/reset every temporary graph and verified
+        # every full-family bit. Only now may the complete raw fallback retire.
+        if raw:
+            self.allocator.retire(self._owners(raw))
+        return planes
+
+    def _select_planes(self, name, x, output, weights, plan, generator, baseline):
+        control, compressed = [], []
+        published = False
+        scratch = output.numel() * 16 + 65536
+        pool = weights[:6] if name != "head" else weights
+        # Account for the FULL provisional raw fallback still being live via
+        # physical mem_get_info. Check enough space for both plane controls now
+        # and full ON extension later, without assuming compression saves space.
+        control_bytes = sum(2 * self.allocator.rounded_size(w.numel(), False) for w in pool)
+        on_bytes = sum(self.allocator.rounded_size(w.numel(), False)
+                       + self.allocator.rounded_size(w.numel(), True) for w in weights)
+        if not self.allocator.has_room(control_bytes + on_bytes, scratch):
+            raise ILCUnavailable("full planes plus retained raw fallback exceed physical reserve")
+        reference = torch.empty_like(output)
+        flag = torch.zeros((), dtype=torch.int32, device=self.device)
+        baseline_kind = "original" if baseline is None else "raw"
+        try:
+            for weight in pool:
+                control.append(self._copy_planes(weight, False, flag, scratch, plan))
+                compressed.append(self._copy_planes(weight, True, flag, scratch, plan))
+            for scale in (0.1, 1.0, 10.0):
+                for index, weight in enumerate(pool):
+                    if time.monotonic() >= self.deadline:
+                        raise ILCUnavailable("plane numerical deadline")
+                    x.normal_(generator=generator).mul_(scale)
+                    self._baseline_run(name, index, x, weight, reference, baseline)
+                    if not torch.isfinite(reference).all().item():
+                        raise ILCUnavailable("nonfinite selected baseline projection")
+                    for pointer in (control[index], compressed[index]):
+                        self._candidate_run(plan, x, pointer, output)
+                        if (not torch.isfinite(output).all().item()
+                                or not torch.equal(output.view(torch.int16), reference.view(torch.int16))):
+                            raise ILCUnavailable("plane projection bits differ from selected baseline")
+            x.normal_(generator=generator)
+            times = self._measure(name, plan, x, output, pool, control, compressed, baseline)
+            self._log(name, f"plane selected plan={plan.name}; baseline={baseline_kind}; " +
+                      "; ".join(f"{arm}={','.join(f'{v * 1000:.2f}' for v in values)} us"
+                                for arm, values in times.items()))
+            if not material_win(times, baseline_kind):
+                return None
+            self.allocator.retire(self._owners(control))
+            control.clear()
+            for weight in weights[len(compressed):]:
+                compressed.append(self._copy_planes(weight, True, flag, scratch, plan))
+            self.allocator.synchronize()
+            if not self.allocator.has_room(0, scratch):
+                raise ILCUnavailable("full plane family physical reserve")
+            published = True
+            return compressed
+        finally:
+            retire = self._owners(control)
+            if not published:
+                retire += self._owners(compressed)
+            if retire and not self.allocator.quarantined:
+                self.allocator.retire(retire)
+
+    def _select_raw(self, name, x, output, weights, plan, generator):
         control, compressed = [], []
         published = False
         # Two output tensors plus integer-comparison temporaries and bit flag.
@@ -248,9 +432,9 @@ class ILCWeights:
                 compressed.append(self._copy(weight, True, flag, scratch))
             self._log(name, "VMM grants: OFF=0, ON=1 verified for every pool allocation")
             # Same actual accepted dispatcher and selected plan. Test all six
-            # real matrices, then both ends at additional activation scales.
-            probes = [(i, 1.0) for i in range(len(pool))]
-            probes += [(0, 0.1), (len(pool) - 1, 10.0)]
+            # real matrices at each of the three activation scales.
+            probes = [(i, scale) for scale in (0.1, 1.0, 10.0)
+                      for i in range(len(pool))]
             for index, scale in probes:
                 if time.monotonic() >= self.deadline:
                     raise ILCUnavailable("numerical deadline")
@@ -259,7 +443,7 @@ class ILCWeights:
                 if not torch.isfinite(reference).all().item():
                     raise ILCUnavailable("nonfinite accepted baseline projection")
                 for pointer in (control[index], compressed[index]):
-                    plan(x, pointer, output)
+                    self._candidate_run(plan, x, pointer, output)
                     if (not torch.isfinite(output).all().item()
                             or not torch.equal(output.view(torch.int16), reference.view(torch.int16))):
                         raise ILCUnavailable("projection bits differ from accepted baseline")
@@ -288,11 +472,19 @@ class ILCWeights:
             if retire and not self.allocator.quarantined:
                 self.allocator.retire(retire)
 
-    def _baseline_run(self, name, index, x, weight, output):
+    def _baseline_run(self, name, index, x, weight, output, baseline=None):
         try:
-            self.native.run(name, index, x, weight, output)
+            if baseline is None:
+                self.native.run(name, index, x, weight, output)
+            else:
+                plan, pointers = baseline
+                plan(x, pointers[index], output)
         except (torch.cuda.OutOfMemoryError, CompilationError, OutOfResources) as error:
             raise BaselineFailure("accepted baseline projection failed") from error
+        except RuntimeError as error:
+            if known_ptxas_failure(error):
+                raise BaselineFailure("accepted baseline PTX compilation failed") from error
+            raise
 
     def _graph(self, launch):
         if time.monotonic() >= self.deadline:
@@ -337,13 +529,13 @@ class ILCWeights:
             raise
         return graph
 
-    def _measure(self, name, plan, x, output, pool, control, compressed):
+    def _measure(self, name, plan, x, output, pool, control, compressed, baseline=None):
         graphs = {}
         times = {"original": [], "off": [], "on": []}
         try:
             def original():
                 for index, weight in enumerate(pool):
-                    self._baseline_run(name, index, x, weight, output)
+                    self._baseline_run(name, index, x, weight, output, baseline)
             try:
                 graphs["original"] = self._graph(original)
             except (torch.cuda.OutOfMemoryError, CompilationError, OutOfResources) as error:
@@ -351,7 +543,7 @@ class ILCWeights:
             for arm, pointers in (("off", control), ("on", compressed)):
                 def alternate(pointers=pointers):
                     for pointer in pointers:
-                        plan(x, pointer, output)
+                        self._candidate_run(plan, x, pointer, output)
                 graphs[arm] = self._graph(alternate)
             # Symmetric order balances drift. Whole operation includes any
             # inherited split-K merge. Real six-weight pools exceed L2; head is
@@ -401,6 +593,6 @@ class ILCWeights:
                     and x.device == self.device and output.device == self.device
                     and x.dtype == torch.bfloat16 and output.dtype == torch.bfloat16
                     and x.stride(1) == 1 and output.stride(1) == 1):
-                plan(x, pointers[layer], output)
+                self._launch(plan, x, pointers[layer], output)
                 return
         self.native.run(name, layer, x, weight, output)
