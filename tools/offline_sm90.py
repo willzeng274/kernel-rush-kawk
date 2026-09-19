@@ -46,7 +46,7 @@ def child(config):
     constants = {i: constants_by_name[n] for i, n in enumerate(kernel.arg_names)
                  if n in constants_by_name}
     types = {'X': '*bf16', 'W': '*bf16', 'LO': '*u8', 'HI': '*u8',
-             'OUT': '*bf16', 'PART': '*fp32', 'N': 'i32',
+             'OUT': '*bf16', 'PART': config.get('part_type', '*fp32'), 'N': 'i32',
              'X_ROW': 'i32', 'OUT_ROW': 'i32'}
     signature = {i: types[n] for i, n in enumerate(kernel.arg_names) if i not in constants}
     divisible = {i for i, n in enumerate(kernel.arg_names)

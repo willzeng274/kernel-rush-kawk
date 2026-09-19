@@ -14,7 +14,7 @@ def main():
             configs.append(('offline_sm90.py', dict(
                 id=f'tree_gu_m{batch}_tile{rows}_k{bk}_s{splits}',
                 rows=rows, B=batch, K=2560, BK=bk, SPLITS=splits,
-                stages=2, planes=False)))
+                stages=2, planes=False, part_type='*bf16')))
     configs.append(('offline_sm90.py', dict(
         id='tree_gu_m8_tile128_k128_s2', rows=128, B=8, K=2560,
         BK=128, SPLITS=2, stages=2, planes=False)))
