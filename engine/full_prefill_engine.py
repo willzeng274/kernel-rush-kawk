@@ -11,6 +11,7 @@ from native_layout import NativeLayout
 from wide_gemv import WideGemvLayout
 from hopper_gemm import HopperGemmLayout
 from hopper_tiles import HopperTilesLayout
+from hopper_pipeline import HopperPipelineLayout
 from persistent_vector import PersistentVectorLayout
 from fused_cache_attention import FusedCacheAttention
 from dense_prefill import DensePrefill
@@ -52,6 +53,8 @@ class Engine(BaseEngine):
             self.native_layout = HopperGemmLayout(
                 self, self.native_layout, self._layout_deadline)
             self.native_layout = HopperTilesLayout(
+                self, self.native_layout, self._layout_deadline)
+            self.native_layout = HopperPipelineLayout(
                 self, self.native_layout, self._layout_deadline)
             self.native_layout = PersistentVectorLayout(
                 self, self.native_layout, self._layout_deadline)
@@ -107,8 +110,7 @@ class Engine(BaseEngine):
                 num_warps=4, enable_fp_fusion=False,
             )
         # Only the last prompt position contributes the first generated token.
-        self.native_layout.run("head", 0, self.prefill_last_normalized,
-                               self.model.lm_head.weight, self.logits)
+        torch.mm(self.prefill_last_normalized, self.model.lm_head.weight.t(), out=self.logits)
         torch.argmax(self.logits, dim=-1, out=self.ids)
 
     def _capture_prefill(self):
