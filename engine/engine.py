@@ -9,7 +9,7 @@ from engine_base import Engine as BaseEngine
 from chunk_graph import DecodeChunks
 from native_layout import NativeLayout
 from wide_gemv import WideGemvLayout
-from batched_vector import BatchedVectorLayout
+from prefill_lt import PrefillLt
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
 from prefill_kernels import prefill_qkv_rope_cache_kernel
 
@@ -21,6 +21,7 @@ class Engine(BaseEngine):
         super().__init__(model_path)
 
     def _allocate(self, batch, prompt, output):
+        self.prefill_lt = None
         super()._allocate(batch, prompt, output)
         self.chunks = None
         self.prefill_graph = None
@@ -45,8 +46,7 @@ class Engine(BaseEngine):
             self.native_layout = NativeLayout(self, self._layout_deadline)
             self.native_layout = WideGemvLayout(
                 self, self.native_layout, self._layout_deadline)
-            self.native_layout = BatchedVectorLayout(
-                self, self.native_layout, self._layout_deadline)
+        self.prefill_lt = PrefillLt(self, self._layout_deadline)
 
     def _prefill_eager(self):
         rows = self.prefill_rows
@@ -60,7 +60,8 @@ class Engine(BaseEngine):
         for idx, layer in enumerate(self.layers):
             attention, mlp = layer.self_attn, layer.mlp
             qkv_weight, gateup_weight = self.packed[idx]
-            torch.mm(self.prefill_normalized, qkv_weight.t(), out=self.prefill_qkv)
+            self.prefill_lt.run("qkv", idx, self.prefill_normalized,
+                                qkv_weight, self.prefill_qkv)
             prefill_qkv_rope_cache_kernel[(triton.cdiv(rows, 4), 40)](
                 self.prefill_qkv, attention.q_norm.weight, attention.k_norm.weight,
                 self.cos, self.sin, self.prefill_query,
@@ -75,20 +76,23 @@ class Engine(BaseEngine):
                 enable_gqa=True,
             )
             attended_rows = attended.transpose(1, 2).reshape(rows, 4096)
-            torch.mm(attended_rows, attention.o_proj.weight.t(), out=self.prefill_branch)
+            self.prefill_lt.run("output", idx, attended_rows,
+                                attention.o_proj.weight, self.prefill_branch)
             residual_norm_kernel[(rows,)](
                 self.prefill_branch, self.prefill_hidden,
                 layer.post_attention_layernorm.weight, self.prefill_normalized,
                 self.h, self.eps, 4096,
                 num_warps=4, enable_fp_fusion=False,
             )
-            torch.mm(self.prefill_normalized, gateup_weight.t(), out=self.prefill_gateup)
+            self.prefill_lt.run("gateup", idx, self.prefill_normalized,
+                                gateup_weight, self.prefill_gateup)
             swiglu_kernel[(triton.cdiv(rows * self.i, 1024),)](
                 self.prefill_gateup, self.prefill_intermediate,
                 self.i, rows * self.i,
                 num_warps=4, enable_fp_fusion=False,
             )
-            torch.mm(self.prefill_intermediate, mlp.down_proj.weight.t(), out=self.prefill_branch)
+            self.prefill_lt.run("down", idx, self.prefill_intermediate,
+                                mlp.down_proj.weight, self.prefill_branch)
             next_weight = (self.layers[idx + 1].input_layernorm.weight
                            if idx + 1 < len(self.layers) else self.base.norm.weight)
             residual_norm_kernel[(rows,)](
