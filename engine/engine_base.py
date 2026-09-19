@@ -140,7 +140,17 @@ class Engine:
     def _allocate(self, batch, prompt, output):
         self.batch, self.prompt = batch, prompt
         self.capacity = prompt + output
-        self.splits = triton.cdiv(self.capacity, 256)
+        # Smaller dense partitions fill otherwise idle SMs at small batch.
+        # Count live keys at the first decode, not future cache capacity.
+        # Keep the graph shape fixed for the complete generation. Limit extra
+        # partitions so a short prompt plus long output does not inflate merge.
+        sm_count = torch.cuda.get_device_properties(0).multi_processor_count
+        self.block_n = 256
+        while (self.block_n > 32
+               and batch * 8 * triton.cdiv(prompt + 1, self.block_n) < sm_count
+               and triton.cdiv(self.capacity, self.block_n // 2) <= 64):
+            self.block_n //= 2
+        self.splits = triton.cdiv(self.capacity, self.block_n)
         device = "cuda:0"
         def empty(*shape, dtype=torch.bfloat16):
             return torch.empty(shape, device=device, dtype=dtype)
@@ -190,7 +200,7 @@ class Engine:
                 self.query, self.keys[idx], self.values[idx], self.position,
                 self.partial, self.pmax, self.psum,
                 self.capacity, self.splits, 128 ** -0.5,
-                num_warps=4, num_stages=1,
+                BLOCK_N=self.block_n, num_warps=4, num_stages=1,
             )
             attention_merge_kernel[(b * 32,)](
                 self.partial, self.pmax, self.psum, self.attention,
