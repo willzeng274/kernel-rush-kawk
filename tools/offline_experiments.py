@@ -9,16 +9,20 @@ from offline_sm90 import OUT
 def main():
     OUT.mkdir(exist_ok=True)
     configs = []
-    for m in (33,64,65,128,129,256):
-        tiles=((128,128),(64,128)) if m<=64 else ((128,128),)
-        for bm,bn in tiles:
-            for sms in (114,132):
-                configs.append(('offline_chain.py', dict(
-                    id=f'large_decode_gu_m{m}_tile{bm}x{bn}_sms{sms}',
-                    kernel='_persistent_dense', source='dense_prefill.py',
-                    cap=544,width=1,warps=4,stages=4,fusion=True,
-                    constants=dict(M=m,N=19456,K=2560,SMS=sms,BM=bm,BN=bn,BK=64,GROUP=8),
-                    signature_types=dict(X='*bf16',W='*bf16',OUT='*bf16'))))
+    for batch,prompt,output in ((4,2048,32),(16,512,128),(3,257,8),(2,259,1)):
+        prefix=prompt//2
+        for route,rows,span,begin in (
+            ('full',batch*prompt,prompt,0),
+            ('prefix',prefix,prefix,0),
+            ('suffix',batch*(prompt-prefix),prompt-prefix,prefix)):
+            configs.append(('offline_chain.py', dict(
+                id=f'prefix_span_b{batch}_s{prompt}_n{output}_{route}',
+                kernel='prefill_qkv_rope_cache_kernel', source='prefix_span_prefill.py',
+                cap=prompt+output,width=1,warps=4,stages=3,fusion=False,
+                constants=dict(ROWS=rows,SPAN=span,CAP=prompt+output,
+                               EPS=1e-6,R=4,NQ=32,NKV=8,D=128,START=begin),
+                signature_types={name:'*bf16' for name in
+                                 ('QKV','QW','KW','COS','SIN','Q','KC','VC')})))
     results = []
     for script, config in configs:
         try:
