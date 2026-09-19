@@ -218,7 +218,7 @@ class Engine:
                 self.h, self.eps, 4096,
                 num_warps=4, enable_fp_fusion=False,
             )
-        torch.mm(self.normalized, self.model.lm_head.weight.t(), out=self.logits)
+        self.native_layout.run("head", 0, self.normalized, self.model.lm_head.weight, self.logits)
         torch.argmax(self.logits, dim=-1, out=self.ids)
         self.position.add_(1)
 
