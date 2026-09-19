@@ -25,9 +25,10 @@ def child(config):
                      '*fp32' if n in ('PART', 'PMAX', 'PSUM') else '*bf16')
                  for i, n in enumerate(kernel.arg_names) if i not in constants}
     fusion = config['kernel'] not in ('chain_qkv_kernel', 'embedding_norm_kernel',
-                                     'residual_norm_kernel', 'swiglu_kernel')
-    stages = 1 if config['kernel'] == 'chain_attention_kernel' else 3
-    options = {'num_warps': 4, 'num_stages': stages, 'enable_fp_fusion': fusion}
+                                     'residual_norm_kernel', 'swiglu_kernel',
+                                     'single_qkv_cache_kernel', 'single_fused_attention_kernel')
+    stages = 1 if config['kernel'] in ('chain_attention_kernel', 'single_fused_attention_kernel') else 3
+    options = {'num_warps': config.get('warps', 4), 'num_stages': stages, 'enable_fp_fusion': fusion}
     kernel_result = triton.compile(
         ASTSource(kernel, signature, constants, AttrsDescriptor(divisible_by_16=set(signature))),
         target=GPUTarget('cuda', 90, 32),

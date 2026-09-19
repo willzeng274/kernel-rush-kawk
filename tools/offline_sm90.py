@@ -36,8 +36,8 @@ def child(config):
     import triton
     from triton.backends.compiler import GPUTarget
     from triton.compiler import ASTSource, AttrsDescriptor
-    source = ('byteplane_kernels.py' if config['planes'] else
-              'hopper_gemm.py' if config['rows'] == 64 else 'hopper_tiles.py')
+    source = config.get('source', 'byteplane_kernels.py' if config['planes'] else
+                        'hopper_gemm.py' if config['rows'] == 64 else 'hopper_tiles.py')
     module, digest = import_device(source)
     name = '_hopper_dot' if config['rows'] == 64 else '_hopper_tiles_dot'
     kernel = getattr(module, name)
