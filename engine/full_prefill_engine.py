@@ -14,7 +14,7 @@ from hopper_tiles import HopperTilesLayout
 from persistent_vector import PersistentVectorLayout
 from fused_cache_attention import FusedCacheAttention
 from dense_prefill import DensePrefill
-from tma_prefill import TmaPrefill
+from tma_decode import TmaDecode
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
 from prefill_kernels import prefill_qkv_rope_cache_kernel
 
@@ -26,6 +26,15 @@ class Engine(BaseEngine):
         super().__init__(model_path)
 
     def _allocate(self, batch, prompt, output):
+        # Retire graphs and their descriptor owners before replacing any buffer.
+        if self.shape is not None:
+            torch.cuda.synchronize(self.normalized.device)
+        self.graph = self.chunks = self.prefill_graph = None
+        self.native_chunks = self.verifier = None
+        previous = getattr(self, "tma_decode", None)
+        if previous is not None:
+            previous.close()
+        self.tma_decode = None
         super()._allocate(batch, prompt, output)
         self.chunks = None
         self.prefill_graph = None
@@ -58,7 +67,7 @@ class Engine(BaseEngine):
                 self, self.native_layout, self._layout_deadline)
 
         self.dense_prefill = DensePrefill(self, self._layout_deadline)
-        self.dense_prefill = TmaPrefill(self, self.dense_prefill, self._layout_deadline)
+        self.tma_decode = TmaDecode(self, self._layout_deadline)
 
     def _prefill_eager(self):
         rows = self.prefill_rows
