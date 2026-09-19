@@ -8,33 +8,29 @@ import triton
 from engine_base import Engine as BaseEngine
 from chunk_graph import DecodeChunks
 from native_layout import NativeLayout
+from ilc_weights import ILCWeights
 from wide_gemv import WideGemvLayout
 from hopper_gemm import HopperGemmLayout
 from hopper_tiles import HopperTilesLayout
 from persistent_vector import PersistentVectorLayout
 from fused_cache_attention import FusedCacheAttention
 from dense_prefill import DensePrefill
-from tma_decode import TmaDecode
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
 from prefill_kernels import prefill_qkv_rope_cache_kernel
 
 
 class Engine(BaseEngine):
     def __init__(self, model_path: str) -> None:
-        self._layout_deadline = time.monotonic() + 180.0
+        self._engine_started = time.monotonic()
+        self._layout_deadline = self._engine_started + 180.0
+        self._ilc_deadline = self._engine_started + 210.0
+        self._attention_deadline = self._layout_deadline
+        self._ilc_layout = None
+        self._uncompressed_layout = None
         self.native_layout = None
         super().__init__(model_path)
 
     def _allocate(self, batch, prompt, output):
-        # Retire graphs and their descriptor owners before replacing any buffer.
-        if self.shape is not None:
-            torch.cuda.synchronize(self.normalized.device)
-        self.graph = self.chunks = self.prefill_graph = None
-        self.native_chunks = self.verifier = None
-        previous = getattr(self, "tma_decode", None)
-        if previous is not None:
-            previous.close()
-        self.tma_decode = None
         super()._allocate(batch, prompt, output)
         self.chunks = None
         self.prefill_graph = None
@@ -67,7 +63,24 @@ class Engine(BaseEngine):
                 self, self.native_layout, self._layout_deadline)
 
         self.dense_prefill = DensePrefill(self, self._layout_deadline)
-        self.tma_decode = TmaDecode(self, self._layout_deadline)
+
+        # Keep original selector ordering and its 180s deadline unchanged.
+        # Compression gets a separate cooperative 30s budget before capture,
+        # capped at engine-start+210s within the shared 300s load/warmup gate.
+        if self._uncompressed_layout is None:
+            self._uncompressed_layout = self.native_layout
+        previous = self._ilc_layout
+        ilc_started = time.monotonic()
+        self._ilc_layout = ILCWeights(self, self._uncompressed_layout, self._ilc_deadline)
+        ilc_elapsed = max(0.0, min(30.0, time.monotonic() - ilc_started))
+        # Added transport selection must not consume the preexisting FCA
+        # opportunity. Credit only its own elapsed time, once and at most 30s;
+        # earlier decode/Dense selectors retain their original 180s deadline.
+        self._attention_deadline = max(
+            self._attention_deadline,
+            min(self._ilc_deadline, self._layout_deadline + ilc_elapsed))
+        self._ilc_layout._previous = previous  # Keep old graph pointers alive.
+        self.native_layout = self._ilc_layout
 
     def _prefill_eager(self):
         rows = self.prefill_rows
@@ -138,7 +151,7 @@ class Engine(BaseEngine):
         self.prefill_graph = graph
 
     def _capture_chunks(self, first, steps):
-        self.fused_cache_attention = FusedCacheAttention(self, self._layout_deadline)
+        self.fused_cache_attention = FusedCacheAttention(self, self._attention_deadline)
         def decode():
             self._step()
             return self.ids

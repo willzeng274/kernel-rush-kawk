@@ -22,7 +22,7 @@ class Engine(PrefillEngine):
         self.verifier = None
 
     def _capture_speculative(self, first):
-        self.fused_cache_attention = FusedCacheAttention(self, self._layout_deadline)
+        self.fused_cache_attention = FusedCacheAttention(self, self._attention_deadline)
         def decode():
             self._step()
             return self.ids
