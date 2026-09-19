@@ -90,7 +90,8 @@ class PersistentVectorLayout(WideGemvLayout):
             if time.monotonic() >= deadline:
                 break
             winner = self._select(name, template, weights, output, generator, deadline)
-            if winner is not None and time.monotonic() < deadline:
+            # _select returns only fully checked, timed, and drained plans.
+            if winner is not None:
                 self.plans[name] = winner
             chosen = self.plans.get(name)
             self._log(name, "selected " + (chosen.name if chosen else "existing layout"))
@@ -102,66 +103,82 @@ class PersistentVectorLayout(WideGemvLayout):
               file=sys.stderr, flush=True)
 
     def _select(self, name, template, weights, output, generator, deadline):
-        if time.monotonic() >= deadline:
-            return None
-        torch.cuda.synchronize(self.device)
-        torch.cuda.empty_cache()
-        if time.monotonic() >= deadline or not self._room(output):
-            self._log(name, "existing: deadline or numerical memory guard")
-            return None
         try:
-            reference = torch.empty_like(output)
-        except torch.cuda.OutOfMemoryError:
-            torch.cuda.empty_cache()
-            self._log(name, "existing: numerical reference allocation failed")
-            return None
-        x = template
-        x.normal_(generator=generator)
-        if time.monotonic() >= deadline:
-            return None
-        existing_graph = self._graph(name, None, x, weights, output, deadline)
-        if existing_graph is None:
-            return None
-        winner, winner_ms = None, float("inf")
-        # Four launch configurations share two K x two warp specializations;
-        # both grid caps are runtime values consumed through num_programs.
-        for multiplier, warps in ((4, 4), (2, 4), (4, 8), (2, 8)):
             if time.monotonic() >= deadline:
-                break
-            plan = PersistentPlan(x, weights[0], output, self.sms, multiplier, warps)
+                return None
+            torch.cuda.synchronize(self.device)
+            torch.cuda.empty_cache()
+            if time.monotonic() >= deadline or not self._room(output):
+                self._log(name, "existing: deadline or numerical memory guard")
+                return None
+            if time.monotonic() >= deadline:
+                return None
             try:
-                if not self._check(name, plan, x, weights, output, reference,
-                                   generator, deadline):
-                    self._log(name, f"{plan.name}: numerical check rejected")
+                reference = torch.empty_like(output)
+            except torch.cuda.OutOfMemoryError:
+                torch.cuda.empty_cache()
+                self._log(name, "existing: numerical reference allocation failed")
+                return None
+            x = template
+            if time.monotonic() >= deadline:
+                return None
+            x.normal_(generator=generator)
+            if time.monotonic() >= deadline:
+                return None
+            existing_graph = self._graph(name, None, x, weights, output, deadline)
+            if existing_graph is None:
+                return None
+            winner, winner_ms = None, float("inf")
+            # Four launch configurations share two K x two warp specializations;
+            # both grid caps are runtime values consumed through num_programs.
+            for multiplier, warps in ((4, 4), (2, 4), (4, 8), (2, 8)):
+                if time.monotonic() >= deadline:
+                    break
+                plan = PersistentPlan(x, weights[0], output, self.sms, multiplier, warps)
+                try:
+                    if not self._check(name, plan, x, weights, output, reference,
+                                       generator, deadline):
+                        self._log(name, f"{plan.name}: numerical check rejected")
+                        continue
+                    if time.monotonic() >= deadline:
+                        break
+                    candidate_graph = self._graph(name, plan, x, weights, output, deadline)
+                    if candidate_graph is None:
+                        break
+                except (CompilationError, OutOfResources) as error:
+                    self._log(name, f"{plan.name}: {type(error).__name__}")
+                    torch.cuda.synchronize(self.device)
                     continue
+                existing_times, candidate_times = [], []
+                for graph, samples in ((existing_graph, existing_times),
+                                       (candidate_graph, candidate_times),
+                                       (candidate_graph, candidate_times),
+                                       (existing_graph, existing_times)):
+                    if time.monotonic() >= deadline:
+                        break
+                    value = self._time(graph, len(weights), deadline)
+                    if value is None:
+                        break
+                    samples.append(value)
+                if len(existing_times) != 2 or len(candidate_times) != 2:
+                    del candidate_graph
+                    break
                 if time.monotonic() >= deadline:
                     break
-                candidate_graph = self._graph(name, plan, x, weights, output, deadline)
-                if candidate_graph is None:
-                    break
-            except (CompilationError, OutOfResources) as error:
-                self._log(name, f"{plan.name}: {type(error).__name__}")
-                continue
-            existing_times, candidate_times = [], []
-            for graph, samples in ((existing_graph, existing_times),
-                                   (candidate_graph, candidate_times),
-                                   (candidate_graph, candidate_times),
-                                   (existing_graph, existing_times)):
-                if time.monotonic() >= deadline:
-                    break
-                samples.append(self._time(graph, len(weights)))
-            if len(existing_times) != 2 or len(candidate_times) != 2:
+                existing_ms, custom_ms = min(existing_times), max(candidate_times)
+                self._log(name, f"{plan.name}: existing {existing_ms * 1000:.2f} us, "
+                          f"custom {custom_ms * 1000:.2f} us")
+                if (all(math.isfinite(value) and value > 0
+                        for value in existing_times + candidate_times)
+                        and custom_ms < existing_ms * 0.95 and custom_ms < winner_ms):
+                    winner, winner_ms = plan, custom_ms
                 del candidate_graph
-                break
-            existing_ms, custom_ms = min(existing_times), max(candidate_times)
-            self._log(name, f"{plan.name}: existing {existing_ms * 1000:.2f} us, "
-                      f"custom {custom_ms * 1000:.2f} us")
-            if (all(math.isfinite(value) and value > 0
-                    for value in existing_times + candidate_times)
-                    and custom_ms < existing_ms * 0.95 and custom_ms < winner_ms):
-                winner, winner_ms = plan, custom_ms
-            del candidate_graph
-        return winner if time.monotonic() < deadline else None
+            # A later incomplete trial must not erase an earlier valid winner.
+            return winner
+        finally:
+            # Drain before local references/workspaces leave scope.
+            # CUDA execution or drain errors must still propagate.
+            torch.cuda.synchronize(self.device)
 
     def run(self, name, layer, x, weight, output):
         plan = self.plans.get(name) if x.shape[0] == 1 else None

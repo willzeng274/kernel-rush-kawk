@@ -124,7 +124,8 @@ class DensePrefill(WideGemvLayout):
             if time.monotonic() >= deadline:
                 break
             winner = self._select(name, x, weights, output, generator, deadline)
-            if winner is not None and time.monotonic() < deadline:
+            # _select returns only fully checked, timed, and drained plans.
+            if winner is not None:
                 self.plans[name] = winner
             self._log(name, "selected " + (winner.name if name in self.plans else "native"))
         torch.cuda.synchronize(self.device)
@@ -135,56 +136,69 @@ class DensePrefill(WideGemvLayout):
               file=sys.stderr, flush=True)
 
     def _select(self, name, x, weights, output, generator, deadline):
-        if (time.monotonic() >= deadline or not weights
-                or 2 * self.rows * weights[0].numel() * len(weights) > self.MAX_POOL_FLOPS):
-            return None
-        torch.cuda.synchronize(self.device)
-        torch.cuda.empty_cache()
-        if time.monotonic() >= deadline or not self._room(output):
-            return None
         try:
-            reference = torch.empty_like(output)
-        except torch.cuda.OutOfMemoryError:
+            if (time.monotonic() >= deadline or not weights
+                    or 2 * self.rows * weights[0].numel() * len(weights) > self.MAX_POOL_FLOPS):
+                return None
+            torch.cuda.synchronize(self.device)
             torch.cuda.empty_cache()
-            return None
-        x.normal_(generator=generator)
-        native_graph = self._graph(name, None, x, weights, output, deadline)
-        if native_graph is None or time.monotonic() >= deadline:
-            return None
-        winner, winner_ms = None, float("inf")
-        for config in DensePlan.CONFIGS:
+            if time.monotonic() >= deadline or not self._room(output):
+                return None
             if time.monotonic() >= deadline:
-                break
-            plan = DensePlan(x, weights[0], output, config, self.sms)
+                return None
             try:
-                # Three independent full-row probes, scales 1, 0.1 and 10,
-                # use the actual torch.mm output and both pool endpoints.
-                if not self._check(name, plan, x, weights, output, reference, generator, deadline):
-                    self._log(name, f"{plan.name}: numerical check rejected")
-                    continue
+                reference = torch.empty_like(output)
+            except torch.cuda.OutOfMemoryError:
+                torch.cuda.empty_cache()
+                return None
+            if time.monotonic() >= deadline:
+                return None
+            x.normal_(generator=generator)
+            native_graph = self._graph(name, None, x, weights, output, deadline)
+            if native_graph is None or time.monotonic() >= deadline:
+                return None
+            winner, winner_ms = None, float("inf")
+            for config in DensePlan.CONFIGS:
                 if time.monotonic() >= deadline:
                     break
-                graph = self._graph(name, plan, x, weights, output, deadline)
-                if graph is None or time.monotonic() >= deadline:
+                plan = DensePlan(x, weights[0], output, config, self.sms)
+                try:
+                    # Three independent full-row probes, scales 1, 0.1 and 10,
+                    # use the actual torch.mm output and both pool endpoints.
+                    if not self._check(name, plan, x, weights, output, reference, generator, deadline):
+                        self._log(name, f"{plan.name}: numerical check rejected")
+                        continue
+                    if time.monotonic() >= deadline:
+                        break
+                    graph = self._graph(name, plan, x, weights, output, deadline)
+                    if graph is None or time.monotonic() >= deadline:
+                        break
+                except (CompilationError, OutOfResources) as error:
+                    self._log(name, f"{plan.name}: {type(error).__name__}")
+                    torch.cuda.synchronize(self.device)
+                    continue
+                natives, customs = [], []
+                for timed, values in ((native_graph, natives), (graph, customs),
+                                       (graph, customs), (native_graph, natives)):
+                    value = self._time(timed, len(weights), deadline)
+                    if value is None:
+                        break
+                    values.append(value)
+                del graph
+                if len(natives) != 2 or len(customs) != 2:
                     break
-            except (CompilationError, OutOfResources) as error:
-                self._log(name, f"{plan.name}: {type(error).__name__}")
-                continue
-            natives, customs = [], []
-            for timed, values in ((native_graph, natives), (graph, customs),
-                                   (graph, customs), (native_graph, natives)):
-                value = self._time(timed, len(weights), deadline)
-                if value is None:
+                if time.monotonic() >= deadline:
                     break
-                values.append(value)
-            del graph
-            if len(natives) != 2 or len(customs) != 2:
-                break
-            old, new = min(natives), max(customs)
-            self._log(name, f"{plan.name}: native {old * 1000:.2f} us, custom {new * 1000:.2f} us")
-            if new < old * 0.95 and new < winner_ms:
-                winner, winner_ms = plan, new
-        return winner if time.monotonic() < deadline else None
+                old, new = min(natives), max(customs)
+                self._log(name, f"{plan.name}: native {old * 1000:.2f} us, custom {new * 1000:.2f} us")
+                if new < old * 0.95 and new < winner_ms:
+                    winner, winner_ms = plan, new
+            # A later incomplete trial must not erase an earlier valid winner.
+            return winner
+        finally:
+            # Drain before local references/workspaces leave scope.
+            # CUDA execution or drain errors must still propagate.
+            torch.cuda.synchronize(self.device)
 
     @staticmethod
     def _time(graph, count, deadline):
@@ -208,6 +222,8 @@ class DensePrefill(WideGemvLayout):
                 return None
             start.record()
             for _ in range(repeats):
+                if time.monotonic() >= deadline:
+                    return None
                 graph.replay()
             end.record()
             end.synchronize()
