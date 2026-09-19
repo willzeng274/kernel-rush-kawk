@@ -28,6 +28,14 @@ def child(config):
               'metadata': kernel_result.metadata._asdict()}
     for ext in ('ttir', 'ttgir', 'ptx', 'llir'):
         (OUT / (config['id'] + '.' + ext)).write_text(kernel_result.asm[ext])
+    from triton.backends.nvidia.compiler import _path_to_binary
+    ptxas, _ = _path_to_binary('ptxas')
+    args = [ptxas, '-v', '--gpu-name=sm_90a', '--fmad=false',
+            str(OUT / (config['id'] + '.ptx')), '-o', str(OUT / (config['id'] + '.cubin'))]
+    resource = subprocess.run(args, capture_output=True, text=True, timeout=30)
+    result['ptxas_returncode'] = resource.returncode
+    result['ptxas_resources'] = resource.stdout + resource.stderr
+    (OUT / (config['id'] + '.ptxas.log')).write_text(resource.stdout + resource.stderr)
     (OUT / (config['id'] + '.json')).write_text(json.dumps(result, indent=2, default=str))
     print(json.dumps(result, default=str), flush=True)
 
@@ -37,7 +45,7 @@ def main():
     if len(sys.argv) > 1:
         child(json.loads(sys.argv[1])); return
     results = []
-    for cap in (544, 2080):
+    for cap in (255, 256, 257, 544, 640, 2080, 4096, 4097):
         for width in (1, 4):
             for name in ('qkv', 'attention', 'merge', 'compact', 'ids'):
                 config = dict(kernel='chain_' + name + '_kernel', cap=cap, width=width,

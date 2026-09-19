@@ -61,6 +61,15 @@ def child(config):
     for ext, content in compiled.asm.items():
         if ext in ('ttir', 'ttgir', 'ptx', 'llir'):
             stem.with_suffix('.' + ext).write_text(content)
+    from triton.backends.nvidia.compiler import _path_to_binary
+    ptxas, _ = _path_to_binary('ptxas')
+    resource = subprocess.run([ptxas, '-v', '--gpu-name=sm_90a',
+                               str(stem.with_suffix('.ptx')), '-o',
+                               str(stem.with_suffix('.cubin'))],
+                              capture_output=True, text=True, timeout=30)
+    stem.with_suffix('.ptxas.log').write_text(resource.stdout + resource.stderr)
+    result['ptxas_returncode'] = resource.returncode
+    result['ptxas_resources'] = resource.stdout + resource.stderr
     ptx = compiled.asm['ptx']
     result['tma_load_count'] = ptx.count('cp.async.bulk.tensor.2d.shared::cluster.global')
     result['wgmma_count'] = ptx.count('wgmma.mma_async')
