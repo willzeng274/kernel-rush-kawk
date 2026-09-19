@@ -24,11 +24,15 @@ def child(config):
     signature = {i: ('*i64' if n in ('META', 'COUNTS', 'IDS', 'PATHS') else
                      '*fp32' if n in ('PART', 'PMAX', 'PSUM') else '*bf16')
                  for i, n in enumerate(kernel.arg_names) if i not in constants}
+    signature = {i: config.get('signature_types', {}).get(kernel.arg_names[i], value)
+                 for i, value in signature.items()}
     fusion = config['kernel'] not in ('chain_qkv_kernel', 'embedding_norm_kernel',
                                      'residual_norm_kernel', 'swiglu_kernel',
                                      'single_qkv_cache_kernel', 'single_fused_attention_kernel', 'tree_qkv_kernel')
     stages = 1 if config['kernel'] in ('chain_attention_kernel', 'single_fused_attention_kernel',
                                      'single_attention_split_kernel', 'tree_attention_kernel') else 3
+    fusion = config.get('fusion', fusion)
+    stages = config.get('stages', stages)
     options = {'num_warps': config.get('warps', 4), 'num_stages': stages, 'enable_fp_fusion': fusion}
     kernel_result = triton.compile(
         ASTSource(kernel, signature, constants, AttrsDescriptor(divisible_by_16=set(signature))),

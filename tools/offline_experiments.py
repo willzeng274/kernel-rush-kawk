@@ -9,23 +9,15 @@ from offline_sm90 import OUT
 def main():
     OUT.mkdir(exist_ok=True)
     configs = []
-    for cap in (255, 256, 257, 544, 640, 2080, 4096, 4097):
-        splits = (cap + 7 + 255) // 256
-        constants = dict(CAP=cap, W=8, EPS=1e-6, D=128, SPLITS=splits,
-                         SCALE=128**-.5, BLOCK_N=256,
-                         BLOCK_S=1 << (splits-1).bit_length(), ROWS=64, BLOCK=128)
-        for kind in ('qkv', 'attention', 'compact'):
+    for alt in (1,3):
+        for name in ('proposal_partials', 'proposal_merge'):
             configs.append(('offline_chain.py', dict(
-                kernel='tree_' + kind + '_kernel', cap=cap, width=8,
-                warps=8 if kind == 'attention' else 4,
-                id=f'tree_{kind}_c{cap}_w8', source='tree_kernels.py', constants=constants)))
-        configs.append(('offline_chain.py', dict(
-            kernel='chain_merge_kernel', cap=cap, width=8, warps=4,
-            id=f'tree_merge_c{cap}_w8', source='recycled_kernels.py', constants=constants)))
-    for batch in range(1,9):
-        configs.append(('offline_chain.py', dict(
-            kernel='chain_ids_kernel', cap=544, width=8, batch=batch,
-            id=f'tree_ids_b{batch}_w8', source='recycled_kernels.py')))
+                kernel=name, cap=544, width=8, warps=4, fusion=False, stages=3,
+                id=f'{name}_alt{alt}', source='topk_proposals.py',
+                constants=dict(V=151936, PARTS=75, ALT=alt, BLOCK=2048,
+                               MERGE_BLOCK=128 if alt==1 else 256),
+                signature_types=dict(Logits='*bf16', Greedy='*i64',
+                                     PartialValues='*fp32', PartialIds='*i32', Out='*i64'))))
     results = []
     for script, config in configs:
         try:
