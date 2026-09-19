@@ -10,6 +10,7 @@ from chunk_graph import DecodeChunks
 from native_layout import NativeLayout
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
 from prefill_kernels import prefill_qkv_rope_cache_kernel
+from prefill_swiglu import PrefillSwiGLU
 
 
 class Engine(BaseEngine):
@@ -41,6 +42,7 @@ class Engine(BaseEngine):
         self.prefill_last_normalized = self.prefill_normalized.view(batch, prompt, self.h)[:, -1, :]
         if self.native_layout is None:
             self.native_layout = NativeLayout(self, self._layout_deadline)
+        self.prefill_swiglu = PrefillSwiGLU(self, self._layout_deadline)
 
     def _prefill_eager(self):
         rows = self.prefill_rows
@@ -76,11 +78,9 @@ class Engine(BaseEngine):
                 self.h, self.eps, 4096,
                 num_warps=4, enable_fp_fusion=False,
             )
-            torch.mm(self.prefill_normalized, gateup_weight.t(), out=self.prefill_gateup)
-            swiglu_kernel[(triton.cdiv(rows * self.i, 1024),)](
+            self.prefill_swiglu.run(
+                self.prefill_normalized, gateup_weight,
                 self.prefill_gateup, self.prefill_intermediate,
-                self.i, rows * self.i,
-                num_warps=4, enable_fp_fusion=False,
             )
             torch.mm(self.prefill_intermediate, mlp.down_proj.weight.t(), out=self.prefill_branch)
             next_weight = (self.layers[idx + 1].input_layernorm.weight
@@ -119,7 +119,7 @@ class Engine(BaseEngine):
             self.position.fill_(self.prompt)
             self.ids.copy_(first)
 
-        self.chunks = DecodeChunks(decode, self.ids, steps, reset, chunk_size=16)
+        self.chunks = DecodeChunks(decode, self.ids, steps, reset, chunk_size=4)
 
     def generate(self, input_ids: list[list[int]], max_new_tokens: int):
         if max_new_tokens <= 0:
