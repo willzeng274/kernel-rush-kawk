@@ -14,6 +14,7 @@ from hopper_tiles import HopperTilesLayout
 from persistent_vector import PersistentVectorLayout
 from fused_cache_attention import FusedCacheAttention
 from dense_prefill import DensePrefill
+from residual_qkv import ResidualQKV
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
 from prefill_kernels import prefill_qkv_rope_cache_kernel
 
@@ -56,6 +57,7 @@ class Engine(BaseEngine):
             self.native_layout = PersistentVectorLayout(
                 self, self.native_layout, self._layout_deadline)
 
+        self.residual_qkv = ResidualQKV(self, self._layout_deadline)
         self.dense_prefill = DensePrefill(self, self._layout_deadline)
 
     def _prefill_eager(self):

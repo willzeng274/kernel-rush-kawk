@@ -170,21 +170,31 @@ class Engine:
     def _step(self):
         """Consume self.ids at self.position; replace IDs and advance position."""
         b = self.batch
+        fuse_qkv = self.residual_qkv.enabled(self)
+        hidden = self.hidden
+        other_hidden = self.residual_qkv.hidden
         embedding_norm_kernel[(b,)](
             self.ids, self.base.embed_tokens.weight,
             self.layers[0].input_layernorm.weight,
-            self.hidden, self.normalized, self.h, self.eps, 4096,
+            hidden, self.normalized, self.h, self.eps, 4096,
             num_warps=4, enable_fp_fusion=False,
         )
         for idx, layer in enumerate(self.layers):
             a, m = layer.self_attn, layer.mlp
             qkv_w, gu_w = self.packed[idx]
-            self.native_layout.run("qkv", idx, self.normalized, qkv_w, self.qkv)
+            if fuse_qkv and idx > 0:
+                self.residual_qkv.run(
+                    idx, self.branch, hidden, layer.input_layernorm.weight,
+                    qkv_w, other_hidden, self.normalized, self.qkv,
+                )
+                hidden, other_hidden = other_hidden, hidden
+            else:
+                self.native_layout.run("qkv", idx, self.normalized, qkv_w, self.qkv)
             self.fused_cache_attention.run(idx)
             self.native_layout.run("output", idx, self.attention,
                                    a.o_proj.weight, self.branch)
             residual_norm_kernel[(b,)](
-                self.branch, self.hidden, layer.post_attention_layernorm.weight,
+                self.branch, hidden, layer.post_attention_layernorm.weight,
                 self.normalized, self.h, self.eps, 4096,
                 num_warps=4, enable_fp_fusion=False,
             )
@@ -197,11 +207,12 @@ class Engine:
                                    m.down_proj.weight, self.branch)
             next_weight = (self.layers[idx + 1].input_layernorm.weight
                            if idx + 1 < len(self.layers) else self.base.norm.weight)
-            residual_norm_kernel[(b,)](
-                self.branch, self.hidden, next_weight, self.normalized,
-                self.h, self.eps, 4096,
-                num_warps=4, enable_fp_fusion=False,
-            )
+            if not fuse_qkv or idx + 1 == len(self.layers):
+                residual_norm_kernel[(b,)](
+                    self.branch, hidden, next_weight, self.normalized,
+                    self.h, self.eps, 4096,
+                    num_warps=4, enable_fp_fusion=False,
+                )
         self.native_layout.run("head", 0, self.normalized,
                                self.model.lm_head.weight, self.logits)
         torch.argmax(self.logits, dim=-1, out=self.ids)
