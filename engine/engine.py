@@ -10,6 +10,7 @@ from chunk_graph import DecodeChunks
 from native_layout import NativeLayout
 from wide_gemv import WideGemvLayout
 from hopper_gemm import HopperGemmLayout
+from persistent_vector import PersistentVectorLayout
 from fused_cache_attention import FusedCacheAttention
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
 from prefill_kernels import prefill_qkv_rope_cache_kernel
@@ -47,6 +48,8 @@ class Engine(BaseEngine):
             self.native_layout = WideGemvLayout(
                 self, self.native_layout, self._layout_deadline)
             self.native_layout = HopperGemmLayout(
+                self, self.native_layout, self._layout_deadline)
+            self.native_layout = PersistentVectorLayout(
                 self, self.native_layout, self._layout_deadline)
 
     def _prefill_eager(self):
