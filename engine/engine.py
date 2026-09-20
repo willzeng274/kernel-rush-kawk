@@ -67,6 +67,25 @@ def _ids_tensor(input_ids: list[list[int]]) -> torch.Tensor:
     return torch.tensor(input_ids, dtype=torch.int64)
 
 
+def _prompt_successors(input_ids: list[list[int]], k: int) -> tuple[list[int], list[list[int]]]:
+    """Request-local proposals, newest distinct successors first (at most eight).
+
+    Recency is reverse batch order, then reverse position within each prompt.
+    Adjacency never crosses sequence boundaries; unused ranks stay unknown.
+    """
+    width = min(k, 8)
+    successors: dict[int, list[int]] = {}
+    for ids in reversed(input_ids):
+        for pos in range(len(ids) - 2, -1, -1):
+            token, nxt = ids[pos], ids[pos + 1]
+            row = successors.get(token)
+            if row is None:
+                successors[token] = [nxt]
+            elif len(row) < width and nxt not in row:
+                row.append(nxt)
+    return list(successors), [row + [-1] * (k - len(row)) for row in successors.values()]
+
+
 class GraphPlan:
     def __init__(self, model: Model, B: int, T: int, max_new: int, spec_k: int | None = None,
                  recycle_rows: int | None = None, recycle_k: int = 8):
@@ -89,6 +108,13 @@ class GraphPlan:
             R = recycle_rows
             self.recycler = Recycler(model.cfg.vocab, B, R, recycle_k, dev)
             self.plan.recycler = self.recycler
+            # Sparse prompt proposals are packed on the host while prefill runs.
+            # The per-request table reset and scatter remain outside the graphs.
+            seed_rows = max(1, min(model.cfg.vocab, B * max(0, T - 1)))
+            self.host_seed_ids = torch.empty((seed_rows,), dtype=torch.int64, pin_memory=True)
+            self.host_seed_next = torch.empty((seed_rows, recycle_k), dtype=torch.int32, pin_memory=True)
+            self.seed_ids = torch.empty((seed_rows,), dtype=torch.int64, device=dev)
+            self.seed_next = torch.empty((seed_rows, recycle_k), dtype=torch.int32, device=dev)
             self.verify = VerifyPlan(self.plan, R, tree=True, recycler=self.recycler)
             self.cand = torch.empty((B, R), dtype=torch.int64, device=dev)
             self.maxa = self.recycler.maxa
@@ -256,6 +282,26 @@ class GraphPlan:
             self.recycle_cleanup_failed = True
             raise
 
+    def _seed_prompt_table(self, input_ids: list[list[int]]) -> None:
+        """Reset only draft state, then upload observed prompt successors.
+
+        All copies and the scatter use prefill's stream. The first-token
+        ``tolist`` below fences them before yielding; errors before that point
+        use the existing recycle drain. The pinned sources belong to this plan
+        and are never overwritten while a previous request is still in flight.
+        """
+        rec = self.recycler
+        rec.table.fill_(-1)
+        tokens, successors = _prompt_successors(input_ids, rec.k)
+        n = len(tokens)
+        if not n:
+            return
+        self.host_seed_ids.numpy()[:n] = tokens
+        self.host_seed_next.numpy()[:n] = successors
+        self.seed_ids[:n].copy_(self.host_seed_ids[:n], non_blocking=True)
+        self.seed_next[:n].copy_(self.host_seed_next[:n], non_blocking=True)
+        rec.table.index_copy_(0, self.seed_ids[:n], self.seed_next[:n])
+
     def run_recycle(self, input_ids: list[list[int]], max_new_tokens: int):
         """Token-recycling loop: draft tree -> verify -> accept longest path -> compact.
 
@@ -276,6 +322,7 @@ class GraphPlan:
             B = self.B
             plan.ids.copy_(_ids_tensor(input_ids))
             self._step_prefill()
+            self._seed_prompt_table(input_ids)
             first = plan.tok.tolist()
             if max_new_tokens == 1:
                 self._drain_recycle()
