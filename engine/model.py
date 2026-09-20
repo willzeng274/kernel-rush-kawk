@@ -170,13 +170,17 @@ def decode_matmuls(m: Model, M: int, log) -> dict[str, object]:
             "lm": lambda x, y, wn, xout, w: lm(add_rms_norm(x, y, wn, cfg.eps, xout), w),
         }
     L = m.layers
-    return {
+    selected = {
         "qkv": pick_normed("matmul", x, y, layer.in_norm, layer.wqkv, cfg.eps, log, ws=[l.wqkv for l in L]),
         "o": pick_matmul(a, layer.wo, log, ws=[l.wo for l in L]),
         "gu": pick_normed("gateup", x, y, layer.post_norm, layer.wgu, cfg.eps, log, ws=[l.wgu for l in L]),
         "d": pick_matmul(act, layer.wd, log, ws=[l.wd for l in L]),
         "lm": pick_normed("matmul", x, y, m.final_norm, m.lm_head, cfg.eps, log),
     }
+    if M == 64:
+        from kernels.m64_matmul_selection import select_m64_projections
+        selected = select_m64_projections(selected, m, x, y, a, act, log)
+    return selected
 
 
 def run_layers(plan: "Plan", mm: dict, x: torch.Tensor, q_buf: torch.Tensor, attn_out: torch.Tensor,
