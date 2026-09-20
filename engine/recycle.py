@@ -22,7 +22,6 @@ import triton.language as tl
 from kernels.accept import flat_children
 from kernels.attention import ancestor_masks
 from pair_cache import PAIR_SLOTS, _pair_slot, _publish_pairs_kernel
-from kernels.top8 import VerifierTop8
 
 #: Rough acceptance probability of a child by its rank among a node's k
 #: candidates, used only to decide which tree nodes are worth a row.
@@ -87,10 +86,11 @@ class TreeTemplate:
 
 
 @triton.jit
-def _draft_kernel(root_ptr, table_ptr, parent_ptr, rank_ptr, spine_slot_ptr, spine_ptr,
+def _draft_kernel(root_ptr, table_ptr, parent_ptr, rank_ptr, spine_slot_ptr, spine_child_ptr, spine_ptr,
                   nseen_ptr, anchor_ptr, blk_ptr, root_prev_ptr, node_keys_ptr,
                   pair_keys_ptr, pair_values_ptr,
-                  K: tl.constexpr, R: tl.constexpr, S: tl.constexpr, SP: tl.constexpr):
+                  K: tl.constexpr, R: tl.constexpr, S: tl.constexpr, SP: tl.constexpr,
+                  VOCAB: tl.constexpr):
     """Nodes are filled in index order (parents first). A node on the spine takes
     the host's n-gram token when one is present (>= 0); otherwise it tries the
     exact pair ending at its parent, then table[token(parent)][rank].
@@ -101,6 +101,8 @@ def _draft_kernel(root_ptr, table_ptr, parent_ptr, rank_ptr, spine_slot_ptr, spi
     ``pool[off + slot]``. That shift is only the right continuation if the model
     actually followed the pool over those tokens, which ``pool[off - 1] == root``
     checks for the last of them; a miss falls the whole spine back to the table.
+    If an active override duplicates a later sibling, that sibling restores the
+    parent's valid pre-override rank-0 proposal (pair cache before unigram).
     """
     b = tl.program_id(0)
     tok = tl.load(root_ptr + b)
@@ -126,6 +128,19 @@ def _draft_kernel(root_ptr, table_ptr, parent_ptr, rank_ptr, spine_slot_ptr, spi
         sp = tl.load(spine_ptr + b * SP + tl.minimum(tl.maximum(off + slot, 0), SP - 1))
         use_spine = (slot >= 0) & (sp >= 0) & fresh
         node = tl.where(use_spine, sp, cand)
+        if R > S + 1:
+            # Only global-spine parents participate. The earlier rank-0 child
+            # used this same fresh override; no extra blk read is needed.
+            child = tl.load(spine_child_ptr + p)
+            child_slot = tl.load(spine_slot_ptr + tl.maximum(child, 0))
+            override = tl.load(spine_ptr + b * SP + tl.minimum(tl.maximum(off + child_slot, 0), SP - 1))
+            duplicate = (slot < 0) & (child >= 0) & (child < i) & fresh & (override >= 0) & (cand == override)
+            original0 = tl.load(table_ptr + ptok * K, mask=duplicate, other=-1)
+            pair0 = tl.load(pair_values_ptr + pair_slot * K,
+                            mask=duplicate & (stored_key == key), other=-1)
+            original0 = tl.where(pair0 >= 0, pair0, original0)
+            restore = duplicate & (original0 >= 0) & (original0 < VOCAB) & (original0 != override)
+            node = tl.where(restore, original0, node)
         tl.store(blk_ptr + b * R + i, node)
         node_key = (ptok.to(tl.uint64) << 32) | node.to(tl.uint64)
         tl.store(node_keys_ptr + b * R + i, node_key)
@@ -157,21 +172,20 @@ class Recycler:
         spine_nodes = self.template.spine
         self.S = max(1, len(spine_nodes))
         slot = [-1] * R
+        spine_child = [-1] * R
         for j, node in enumerate(spine_nodes):
             slot[node] = j
+            spine_child[self.template.parent[node]] = node
         self.spine_slot = torch.tensor(slot, dtype=torch.int32, device=device)
+        self.spine_child = torch.tensor(spine_child, dtype=torch.int32, device=device)
         # Room for the whole spine plus every token one round can accept past
         # the anchor the host wrote the pool from.
         self.SP = self.S + self.maxa + 1
         self.spine = torch.full((B, self.SP), -1, dtype=torch.int64, device=device)
         self.spine_anchor = torch.zeros((B,), dtype=torch.int32, device=device)
-        self.verifier_top8 = VerifierTop8(vocab, B * R, device) if k == 8 and vocab == 151936 else None
 
     def update(self, tokens: torch.Tensor, logits: torch.Tensor, *, cache_pairs: bool = False) -> None:
         """Record the top-k next tokens predicted after each of ``tokens`` ([N] int64, logits [N, V])."""
-        if cache_pairs and self.verifier_top8 is not None:
-            self.verifier_top8.update(self.table, tokens, logits, self.top)
-            return
         top = torch.topk(logits, self.k, dim=-1).indices.to(torch.int32)
         self.table.index_copy_(0, tokens, top)
         # Prefill calls use arbitrary row chunks, sometimes coincidentally B*R.
@@ -183,10 +197,10 @@ class Recycler:
         """Fill ``blk`` from ``root`` by walking the template through the table.
         ``nseen`` [B] int32 is the device's token counter; the spine pool is read
         at ``nseen - spine_anchor``."""
-        _draft_kernel[(self.B,)](self.root, self.table, self.parent, self.rank, self.spine_slot, self.spine,
+        _draft_kernel[(self.B,)](self.root, self.table, self.parent, self.rank, self.spine_slot, self.spine_child, self.spine,
                                  nseen, self.spine_anchor, self.blk,
                                  self.root_prev, self.node_keys, self.pair_keys, self.pair_values,
-                                 K=self.k, R=self.R, S=self.S, SP=self.SP)
+                                 K=self.k, R=self.R, S=self.S, SP=self.SP, VOCAB=self.table.shape[0])
 
     def publish_pairs(self, path_idx: torch.Tensor, path_len: torch.Tensor) -> None:
         """Publish only consumed accepted rows, then advance the root predecessor."""
