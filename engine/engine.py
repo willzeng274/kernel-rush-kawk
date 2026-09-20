@@ -46,7 +46,7 @@ from kernels.accept import accept_paths
 from kernels.compact import compact_paths
 from model import Model, Plan, VerifyPlan
 from recycle import Recycler
-from pair_cache import PAIR_SLOTS, TRIPLE_SLOTS, prompt_pairs, prompt_triples
+from pair_cache import PAIR_SLOTS, prompt_pairs
 from prompt_seed import PromptModelSeed
 from spec import NGramDrafter
 
@@ -99,15 +99,6 @@ class GraphPlan:
             self.seed_pair_slots = torch.empty((pair_rows,), dtype=torch.int64, device=dev)
             self.seed_pair_keys = torch.empty((pair_rows,), dtype=torch.int64, device=dev)
             self.seed_pair_next = torch.empty((pair_rows, recycle_k), dtype=torch.int32, device=dev)
-            triple_rows = max(1, B * min(TRIPLE_SLOTS, max(0, T - 3)))
-            self.host_triple_slots = torch.empty((triple_rows,), dtype=torch.int64, pin_memory=True)
-            self.host_triple_keys = torch.empty((triple_rows,), dtype=torch.int64, pin_memory=True)
-            self.host_triple_oldest = torch.empty((triple_rows,), dtype=torch.int32, pin_memory=True)
-            self.host_triple_next = torch.empty((triple_rows, recycle_k), dtype=torch.int32, pin_memory=True)
-            self.seed_triple_slots = torch.empty((triple_rows,), dtype=torch.int64, device=dev)
-            self.seed_triple_keys = torch.empty((triple_rows,), dtype=torch.int64, device=dev)
-            self.seed_triple_oldest = torch.empty((triple_rows,), dtype=torch.int32, device=dev)
-            self.seed_triple_next = torch.empty((triple_rows, recycle_k), dtype=torch.int32, device=dev)
             self.verify = VerifyPlan(self.plan, R, tree=True, recycler=self.recycler)
             self.cand = torch.empty((B, R), dtype=torch.int64, device=dev)
             self.maxa = self.recycler.maxa
@@ -302,26 +293,6 @@ class GraphPlan:
         rec.pair_values.index_copy_(0, self.seed_pair_slots[:n], self.seed_pair_next[:n])
         rec.pair_keys.index_copy_(0, self.seed_pair_slots[:n], self.seed_pair_keys[:n])
 
-    def _seed_triple_table(self, input_ids: list[list[int]]) -> None:
-        """Reset request-local exact triple tags; upload values before validity."""
-        rec = self.recycler
-        rec.triple_oldest.fill_(-1)
-        slots, keys, oldest, values = prompt_triples(input_ids, rec.k)
-        n = len(slots)
-        if not n:
-            return
-        self.host_triple_slots.numpy()[:n] = slots
-        self.host_triple_keys.numpy()[:n] = keys
-        self.host_triple_oldest.numpy()[:n] = oldest
-        self.host_triple_next.numpy()[:n] = values
-        self.seed_triple_slots[:n].copy_(self.host_triple_slots[:n], non_blocking=True)
-        self.seed_triple_keys[:n].copy_(self.host_triple_keys[:n], non_blocking=True)
-        self.seed_triple_oldest[:n].copy_(self.host_triple_oldest[:n], non_blocking=True)
-        self.seed_triple_next[:n].copy_(self.host_triple_next[:n], non_blocking=True)
-        rec.triple_values.index_copy_(0, self.seed_triple_slots[:n], self.seed_triple_next[:n])
-        rec.triple_keys.index_copy_(0, self.seed_triple_slots[:n], self.seed_triple_keys[:n])
-        rec.triple_oldest.index_copy_(0, self.seed_triple_slots[:n], self.seed_triple_oldest[:n])
-
     def run_recycle(self, input_ids: list[list[int]], max_new_tokens: int):
         """Token-recycling loop: draft tree -> verify -> accept longest path -> compact.
 
@@ -344,7 +315,6 @@ class GraphPlan:
             self._step_prefill()
             plan.prompt_seed.seed(input_ids, plan.model.lm_head, rec)
             self._seed_pair_table(input_ids)
-            self._seed_triple_table(input_ids)
             first = plan.tok.tolist()
             if max_new_tokens == 1:
                 self._drain_recycle()
@@ -361,10 +331,6 @@ class GraphPlan:
             ver.pos.copy_(plan.pos - 1)
             rec.root.copy_(plan.tok)
             rec.root_prev.copy_(plan.ids[:, -1])
-            if self.T >= 2:
-                rec.root_prevprev.copy_(plan.ids[:, -2])
-            else:
-                rec.root_prevprev.fill_(-1)
             self.path_len.zero_()
             self.nseen.fill_(1)
             self.limit.fill_(max_new_tokens)

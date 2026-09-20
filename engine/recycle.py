@@ -21,7 +21,7 @@ import triton.language as tl
 
 from kernels.accept import flat_children
 from kernels.attention import ancestor_masks
-from pair_cache import PAIR_SLOTS, TRIPLE_SLOTS, _pair_slot, _triple_slot, _publish_pairs_kernel
+from pair_cache import PAIR_SLOTS, _pair_slot, _publish_pairs_kernel
 
 #: Rough acceptance probability of a child by its rank among a node's k
 #: candidates, used only to decide which tree nodes are worth a row.
@@ -89,12 +89,10 @@ class TreeTemplate:
 def _draft_kernel(root_ptr, table_ptr, parent_ptr, rank_ptr, spine_slot_ptr, spine_ptr,
                   nseen_ptr, anchor_ptr, blk_ptr, root_prev_ptr, node_keys_ptr,
                   pair_keys_ptr, pair_values_ptr,
-                  root_prevprev_ptr, node_oldest_ptr, triple_keys_ptr,
-                  triple_oldest_ptr, triple_values_ptr,
                   K: tl.constexpr, R: tl.constexpr, S: tl.constexpr, SP: tl.constexpr):
     """Nodes are filled in index order (parents first). A node on the spine takes
     the host's n-gram token when one is present (>= 0); otherwise it tries the
-    exact triple ending at its parent, then the pair, then the unigram table.
+    exact pair ending at its parent, then table[token(parent)][rank].
 
     The host writes the n-gram continuation a round late — it launches round
     t + 1 before it has read round t's tokens — so the pool it wrote is anchored
@@ -109,8 +107,6 @@ def _draft_kernel(root_ptr, table_ptr, parent_ptr, rank_ptr, spine_slot_ptr, spi
     previous = tl.load(root_prev_ptr + b)
     root_key = (previous.to(tl.uint64) << 32) | tok.to(tl.uint64)
     tl.store(node_keys_ptr + b * R, root_key)
-    oldest = tl.load(root_prevprev_ptr + b)
-    tl.store(node_oldest_ptr + b * R, oldest)
     off = tl.load(nseen_ptr + b) - tl.load(anchor_ptr + b)
     prev = tl.load(spine_ptr + b * SP + tl.minimum(tl.maximum(off - 1, 0), SP - 1))
     fresh = (off >= 0) & (off + S <= SP) & ((off == 0) | (prev == tok))
@@ -125,14 +121,6 @@ def _draft_kernel(root_ptr, table_ptr, parent_ptr, rank_ptr, spine_slot_ptr, spi
         pair_cand = tl.load(pair_values_ptr + pair_slot * K + r,
                             mask=stored_key == key, other=-1)
         cand = tl.where(pair_cand >= 0, pair_cand, cand)
-        oldest = tl.load(node_oldest_ptr + b * R + p)
-        triple_slot = b * 4096 + _triple_slot(key, oldest)
-        stored_oldest = tl.load(triple_oldest_ptr + triple_slot)
-        valid_oldest = (oldest >= 0) & (stored_oldest == oldest)
-        stored_tail = tl.load(triple_keys_ptr + triple_slot, mask=valid_oldest, other=-1)
-        triple_cand = tl.load(triple_values_ptr + triple_slot * K + r,
-                              mask=valid_oldest & (stored_tail == key), other=-1)
-        cand = tl.where(triple_cand >= 0, triple_cand, cand)
         slot = tl.load(spine_slot_ptr + i)
         sp = tl.load(spine_ptr + b * SP + tl.minimum(tl.maximum(off + slot, 0), SP - 1))
         use_spine = (slot >= 0) & (sp >= 0) & fresh
@@ -140,7 +128,6 @@ def _draft_kernel(root_ptr, table_ptr, parent_ptr, rank_ptr, spine_slot_ptr, spi
         tl.store(blk_ptr + b * R + i, node)
         node_key = (ptok.to(tl.uint64) << 32) | node.to(tl.uint64)
         tl.store(node_keys_ptr + b * R + i, node_key)
-        tl.store(node_oldest_ptr + b * R + i, (key.to(tl.uint64) >> 32).to(tl.int32))
 
 
 class Recycler:
@@ -155,11 +142,6 @@ class Recycler:
         self.pair_values = torch.empty((B * PAIR_SLOTS, k), dtype=torch.int32, device=device)
         self.node_keys = torch.zeros((B, R), dtype=torch.int64, device=device)
         self.root_prev = torch.zeros((B,), dtype=torch.int64, device=device)
-        self.root_prevprev = torch.full((B,), -1, dtype=torch.int32, device=device)
-        self.node_oldest = torch.full((B, R), -1, dtype=torch.int32, device=device)
-        self.triple_keys = torch.empty((B * TRIPLE_SLOTS,), dtype=torch.int64, device=device)
-        self.triple_oldest = torch.full((B * TRIPLE_SLOTS,), -1, dtype=torch.int32, device=device)
-        self.triple_values = torch.empty((B * TRIPLE_SLOTS, k), dtype=torch.int32, device=device)
         self.top = torch.empty((B * R, k), dtype=torch.int32, device=device)
         self.parent = torch.tensor(self.template.parent, dtype=torch.int32, device=device)
         self.rank = torch.tensor(self.template.rank, dtype=torch.int32, device=device)
@@ -199,17 +181,13 @@ class Recycler:
         _draft_kernel[(self.B,)](self.root, self.table, self.parent, self.rank, self.spine_slot, self.spine,
                                  nseen, self.spine_anchor, self.blk,
                                  self.root_prev, self.node_keys, self.pair_keys, self.pair_values,
-                                 self.root_prevprev, self.node_oldest, self.triple_keys,
-                                 self.triple_oldest, self.triple_values,
                                  K=self.k, R=self.R, S=self.S, SP=self.SP)
 
     def publish_pairs(self, path_idx: torch.Tensor, path_len: torch.Tensor) -> None:
         """Publish only consumed accepted rows, then advance the root predecessor."""
         _publish_pairs_kernel[(self.B,)](
             self.pair_keys, self.pair_values, self.node_keys, self.top, self.blk,
-            self.root_prev, path_idx, path_len,
-            self.triple_keys, self.triple_oldest, self.triple_values, self.node_oldest,
-            self.root_prevprev, K=self.k, R=self.R,
+            self.root_prev, path_idx, path_len, K=self.k, R=self.R,
             MAXA=self.maxa, P=triton.next_power_of_2(self.k), num_warps=1)
 
     def accept(self, blk_row: list[int], cand_row: list[int],
