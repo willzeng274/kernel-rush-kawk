@@ -1,8 +1,9 @@
-"""Full-prompt Q/K norm, exact-boundary RoPE, and static-prefix KV writes.
+"""Span Q/K norm, exact-boundary RoPE, and static-cache KV writes.
 
-QKV [B*S,6144] and query output [B*S,4096] are contiguous BF16.
+QKV [B*SPAN,6144] and query output [B*SPAN,4096] are contiguous BF16.
 K/V are BF16 [B,8,CAP,128]; cos/sin are BF16 [CAP,128].
-Each program processes four prompt rows for a single Q or K head.
+Each program processes four rows for a single Q or K head. START is the
+absolute position of the span; the existing full-prefill call defaults to 0.
 """
 import triton
 import triton.language as tl
@@ -11,18 +12,18 @@ import triton.language as tl
 @triton.jit
 def prefill_qkv_rope_cache_kernel(
     QKV, QW, KW, COS, SIN, Q, KC, VC,
-    ROWS: tl.constexpr, PROMPT: tl.constexpr, CAP: tl.constexpr,
+    ROWS: tl.constexpr, SPAN: tl.constexpr, CAP: tl.constexpr,
     EPS: tl.constexpr, R: tl.constexpr = 4,
     NQ: tl.constexpr = 32, NKV: tl.constexpr = 8,
-    D: tl.constexpr = 128,
+    D: tl.constexpr = 128, START: tl.constexpr = 0,
 ):
     rows = tl.program_id(0) * R + tl.arange(0, R)
     head = tl.program_id(1)
     d = tl.arange(0, D)
     rd = (d + D // 2) % D
     valid = rows < ROWS
-    batch = rows // PROMPT
-    position = rows % PROMPT
+    batch = rows // SPAN
+    position = START + rows % SPAN
     if head < NQ:
         base = rows * ((NQ + 2 * NKV) * D) + head * D
         w = tl.load(QW + d).to(tl.float32)

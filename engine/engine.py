@@ -5,7 +5,7 @@ to the passing fused-prefill/native-layout chunk engine unchanged.
 """
 import torch
 
-from full_prefill_engine import Engine as PrefillEngine
+from shared_prefix_prefill import Engine as PrefillEngine
 from chunk_graph import DecodeChunks
 from speculative_host import RequestState
 from verify_graph import VerifyGraph
