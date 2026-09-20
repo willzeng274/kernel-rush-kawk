@@ -1,108 +1,115 @@
-"""Captured fused prefill, native layout, and bounded exact B1 speculation.
-
-All other batches and outputs too short for the fixed attempt budget delegate
-to the passing fused-prefill/native-layout chunk engine unchanged.
-"""
+"""Retained #32 plus one fail-closed W12 two-dimensional Lookahead option."""
+import time
 import torch
+from triton.compiler.errors import CompilationError
+from triton.runtime.errors import OutOfResources
+from retained_engine import Engine as RetainedEngine
+from lookahead_graph import LookaheadGraph
+from lookahead_lifetime import Control, CandidateRejected
+from lookahead_runtime import request, timed_complete, whole_call_admission
+from lookahead_validate import restore, validate, prices
 
-from full_prefill_engine import Engine as PrefillEngine
-from chunk_graph import DecodeChunks
-from speculative_host import RequestState
-from verify_graph import VerifyGraph
-from fused_cache_attention import FusedCacheAttention
 
-
-class Engine(PrefillEngine):
-    def __init__(self, model_path: str) -> None:
+class Engine(RetainedEngine):
+    def __init__(self, model_path):
+        # RetainedEngine still owns its original, unmodified 180-second tuner.
+        self.la_control = Control(time.monotonic(), lambda: torch.cuda.synchronize())
+        self.la_graphs = self.la_costs = None
+        self.la_decided = False
         super().__init__(model_path)
 
     def _allocate(self, batch, prompt, output):
+        self.la_control.drain()
+        self.la_graphs = self.la_costs = None
+        self.la_control.owners.clear()  # Only after successful drain.
+        self.la_decided = False
         super()._allocate(batch, prompt, output)
-        self.native_chunks = None
-        self.verifier = None
 
-    def _capture_speculative(self, first):
-        self.fused_cache_attention = FusedCacheAttention(self, self._layout_deadline)
-        def decode():
-            self._step()
-            return self.ids
+    def _memory_guard(self):
+        self.la_control.live()
+        free, total = torch.cuda.mem_get_info()
+        cache = sum(x.numel() * x.element_size() for x in self.keys + self.values)
+        # Both geometries, full-cache byte guards, cuBLAS/capture/allocator room.
+        b, cap = self.batch, self.capacity
+        splits12 = (cap + 11 + 127) // 128
+        scratch = 147456 * b * 13
+        logits = b * 13 * self.model.config.vocab_size * 2
+        activations = b * 13 * 52000 * 2
+        partial = b * 32 * (12 * splits12 + self.splits) * 130 * 4
+        extra = scratch + logits + activations + partial + 2 * cache + 2 * 2**30
+        if (torch.cuda.memory_allocated() + extra > .85 * total
+                or torch.cuda.max_memory_allocated() > .85 * total
+                or free < extra):
+            raise CandidateRejected("optional memory preflight")
 
-        def reset():
-            self.position.fill_(self.prompt)
-            self.ids.copy_(first)
+    def _prepare_lookahead(self, prompts, output):
+        c = self.la_control
+        accepted = False
+        # Prepare the REAL retained generator, including B1 speculative/chunk
+        # captures. Its complete first warmup work consumes the original budget.
+        native = RetainedEngine.generate(self, prompts, output)
+        try:
+            for _ in native:
+                pass
+        finally:
+            native.close()
+            c.drain()
+        try:
+            c.live("base", 10.0)
+            baseline = timed_complete(self, lambda: RetainedEngine.generate(self, prompts, output), "base")
+            restore(self, prompts)
+            c.reserve()
+            c.live()
+            self._memory_guard()
+            c.live("constructor_one", 20.0)
+            start = time.perf_counter()
+            one = LookaheadGraph(self, 1)
+            c.observed("constructor_one", time.perf_counter() - start)
+            c.live("constructor_wide", 45.0)
+            start = time.perf_counter()
+            wide = LookaheadGraph(self, 12)
+            c.observed("constructor_wide", time.perf_counter() - start)
+            self.la_graphs = {1: one, 12: wide}
+            validate(self, self.la_graphs, prompts, output)
+            d0 = baseline[2] / (output - 1)
+            costs = prices(self, self.la_graphs, prompts, output, d0)
+            self.la_costs = whole_call_admission(
+                self, prompts, output, costs,
+                lambda: RetainedEngine.generate(self, prompts, output))
+            self._memory_guard()
+            c.live()
+            accepted = True
+        except (CandidateRejected, TimeoutError, CompilationError, OutOfResources,
+                torch.cuda.OutOfMemoryError):
+            # Only optional setup rejects. Runtime errors and failed drains
+            # propagate; measured requests never catch their own failures.
+            accepted = False
+        finally:
+            c.drain()
+            if not accepted:
+                self.la_graphs = self.la_costs = None
+                c.owners.clear()
+            # Always reset prompt KV/position/current IDs after setup trials.
+            # No setup answer list is returned by the real warmup generation.
+            restore(self, prompts)
+            self.la_decided = True
 
-        # Acceptance changes the tail length, so every possible size is warmed
-        # and captured before any measured request reuses this shape.
-        self.native_chunks = {
-            size: DecodeChunks(decode, self.ids, size, reset, chunk_size=size)
-            for size in (1, 2, 3, 4)
-        }
-        self.verifier = VerifyGraph(self, first)
-        reset()
-        torch.cuda.synchronize(self.ids.device)
-
-    def _launch_plan(self, plan):
-        if plan.kind == "verify":
-            self.verifier.replay(plan.inputs)
-        else:
-            self.native_chunks[plan.steps].graphs[plan.steps].replay()
-
-    def _read_plan(self, plan):
-        if plan.kind == "verify":
-            return self.verifier.output.tolist()
-        return [row[0] for row in
-                self.native_chunks[plan.steps].outputs[plan.steps].tolist()]
-
-    def _generate_speculative(self, prompt, first, output):
-        # Called only after the prefill token has been emitted to the caller.
-        state = RequestState(prompt, first, output)
-        plan = state.next_plan()
-        if plan is None:
-            return
-        self._launch_plan(plan)
-        while plan is not None:
-            committed = state.commit(plan, self._read_plan(plan))
-            if plan.kind == "verify":
-                # Speculative KV beyond this logical prefix remains masked and
-                # is overwritten before being consumed by any future step.
-                self.position.fill_(state.position)
-                self.ids.fill_(state.pending)
-            following = state.next_plan()
-            if following is not None:
-                self._launch_plan(following)
-            elif plan.kind == "verify":
-                # The host read finishes verification; finish the subsequent
-                # position/token restoration too before the final yield.
-                torch.cuda.current_stream().synchronize()
-            for token in committed:
-                yield [token]
-            plan = following
-
-    def generate(self, input_ids: list[list[int]], max_new_tokens: int):
+    def generate(self, input_ids, max_new_tokens):
         if max_new_tokens <= 0:
             return
-        batch, prompt = len(input_ids), len(input_ids[0])
-        if batch != 1 or max_new_tokens < 25:
-            yield from super().generate(input_ids, max_new_tokens)
-            return
-        with torch.inference_mode():
-            if self.shape != (batch, prompt, max_new_tokens):
-                self._allocate(batch, prompt, max_new_tokens)
-            current = torch.tensor(input_ids, device="cuda:0", dtype=torch.int64)
-            self.prefill_input.copy_(current)
-            if self.prefill_graph is None:
-                self._capture_prefill()
-            # Every replay rewrites this request's full prompt KV. Keep the
-            # prefill result independent of native IDs, which graph warmup
-            # mutates while preparing all four possible native tail lengths.
-            self.prefill_graph.replay()
-            first = self.ids.clone()
-            if self.native_chunks is None:
-                self._capture_speculative(first)
-            self.position.fill_(prompt)
-            self.ids.copy_(first)
-            first_row = self.ids.tolist()
-            yield first_row
-            yield from self._generate_speculative(
-                input_ids[0], first_row[0], max_new_tokens,
-            )
+        self.la_control.healthy()
+        try:
+            batch, prompt = len(input_ids), len(input_ids[0])
+            supported = 1 <= batch <= 16 and prompt >= 1 and max_new_tokens >= 7
+            if not supported:
+                yield from RetainedEngine.generate(self, input_ids, max_new_tokens)
+                return
+            with torch.inference_mode():
+                if self.shape != (batch, prompt, max_new_tokens) or not self.la_decided:
+                    self._prepare_lookahead(input_ids, max_new_tokens)
+                if self.la_graphs is None:
+                    yield from RetainedEngine.generate(self, input_ids, max_new_tokens)
+                else:
+                    yield from request(self, input_ids, max_new_tokens, self.la_costs)
+        finally:
+            self.la_control.drain()

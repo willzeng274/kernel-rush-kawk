@@ -20,7 +20,7 @@ from prefill_kernels import prefill_qkv_rope_cache_kernel
 
 class Engine(BaseEngine):
     def __init__(self, model_path: str) -> None:
-        self._layout_deadline = time.monotonic() + 230.0
+        self._layout_deadline = time.monotonic() + 180.0
         self.native_layout = None
         super().__init__(model_path)
 
