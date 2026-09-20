@@ -1,0 +1,696 @@
+{
+  "status": "PROPOSED COMPILATION; source/CPU candidate frozen separately; no compile or GPU execution",
+  "base_manifest": "BASE_MANIFEST.json",
+  "primary_cases": 12,
+  "optional_cases": 0,
+  "optional_reduction_launches": 0,
+  "target": {
+    "triton": "3.1.0",
+    "backend": "cuda",
+    "arch": 90,
+    "warp_size": 32,
+    "cuda": "12.4"
+  },
+  "bounds": {
+    "single_worker": true,
+    "total_seconds": 180,
+    "case_seconds": 40,
+    "retry": false,
+    "expand_search": false
+  },
+  "native_signature_rule": "Read launcher/JIT binder and native _get_config for every exact case; no invented constants. Emit observed signature+attrs. Deduplicate only identical native specialization keys, keeping every launch covered in matrix. Compilation verifies no execution behavior.",
+  "inspection": [
+    "source hashes identical to research snapshots and new wrapper before compile",
+    "WGMMA eligibility and actual instruction selection",
+    "async K loads and pipelining/barrier lifetimes",
+    "register/shared/spill resource metadata and PTXAS diagnostics",
+    "m/n/k bounds, persistent tile iteration and BF16 cast placement",
+    "sum kernel FP32 accumulation followed by a single BF16 cast (optional C only)"
+  ],
+  "cases": [
+    {
+      "id": "A_qkv",
+      "optional": false,
+      "shape_MNK": [
+        64,
+        6144,
+        2560
+      ],
+      "kernel": "kernels.gemm._skinny_kernel",
+      "tensor_signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "y_ptr": "*bf16 (alias a)",
+        "wn_ptr": "*bf16 (alias w)",
+        "xout_ptr": "*bf16 (alias a; NORM=False)"
+      },
+      "runtime_scalars": {
+        "M": 64,
+        "N": 6144,
+        "K": 2560,
+        "stride_am": 2560,
+        "stride_wn": 2560,
+        "k_per_split": 2560,
+        "num_tiles": 96,
+        "eps": 0.0
+      },
+      "constexpr": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 64,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "launch_options": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "num_ctas": "native default 1; verify",
+        "enable_fp_fusion": "native default True; verify"
+      },
+      "grid_assuming_132_SMs": [
+        96
+      ],
+      "part_bytes": 0,
+      "reduction": null
+    },
+    {
+      "id": "A_o",
+      "optional": false,
+      "shape_MNK": [
+        64,
+        2560,
+        4096
+      ],
+      "kernel": "kernels.gemm._skinny_kernel",
+      "tensor_signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "y_ptr": "*bf16 (alias a)",
+        "wn_ptr": "*bf16 (alias w)",
+        "xout_ptr": "*bf16 (alias a; NORM=False)"
+      },
+      "runtime_scalars": {
+        "M": 64,
+        "N": 2560,
+        "K": 4096,
+        "stride_am": 4096,
+        "stride_wn": 4096,
+        "k_per_split": 4096,
+        "num_tiles": 40,
+        "eps": 0.0
+      },
+      "constexpr": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 64,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "launch_options": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "num_ctas": "native default 1; verify",
+        "enable_fp_fusion": "native default True; verify"
+      },
+      "grid_assuming_132_SMs": [
+        40
+      ],
+      "part_bytes": 0,
+      "reduction": null
+    },
+    {
+      "id": "A_d",
+      "optional": false,
+      "shape_MNK": [
+        64,
+        2560,
+        9728
+      ],
+      "kernel": "kernels.gemm._skinny_kernel",
+      "tensor_signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "y_ptr": "*bf16 (alias a)",
+        "wn_ptr": "*bf16 (alias w)",
+        "xout_ptr": "*bf16 (alias a; NORM=False)"
+      },
+      "runtime_scalars": {
+        "M": 64,
+        "N": 2560,
+        "K": 9728,
+        "stride_am": 9728,
+        "stride_wn": 9728,
+        "k_per_split": 9728,
+        "num_tiles": 40,
+        "eps": 0.0
+      },
+      "constexpr": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 64,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "launch_options": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "num_ctas": "native default 1; verify",
+        "enable_fp_fusion": "native default True; verify"
+      },
+      "grid_assuming_132_SMs": [
+        40
+      ],
+      "part_bytes": 0,
+      "reduction": null
+    },
+    {
+      "id": "A_lm",
+      "optional": false,
+      "shape_MNK": [
+        64,
+        151936,
+        2560
+      ],
+      "kernel": "kernels.gemm._skinny_kernel",
+      "tensor_signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "y_ptr": "*bf16 (alias a)",
+        "wn_ptr": "*bf16 (alias w)",
+        "xout_ptr": "*bf16 (alias a; NORM=False)"
+      },
+      "runtime_scalars": {
+        "M": 64,
+        "N": 151936,
+        "K": 2560,
+        "stride_am": 2560,
+        "stride_wn": 2560,
+        "k_per_split": 2560,
+        "num_tiles": 2374,
+        "eps": 0.0
+      },
+      "constexpr": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 64,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "launch_options": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "num_ctas": "native default 1; verify",
+        "enable_fp_fusion": "native default True; verify"
+      },
+      "grid_assuming_132_SMs": [
+        132
+      ],
+      "part_bytes": 0,
+      "reduction": null
+    },
+    {
+      "id": "B_qkv",
+      "optional": false,
+      "shape_MNK": [
+        64,
+        6144,
+        2560
+      ],
+      "kernel": "kernels.gemm._skinny_kernel",
+      "tensor_signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "y_ptr": "*bf16 (alias a)",
+        "wn_ptr": "*bf16 (alias w)",
+        "xout_ptr": "*bf16 (alias a; NORM=False)"
+      },
+      "runtime_scalars": {
+        "M": 64,
+        "N": 6144,
+        "K": 2560,
+        "stride_am": 2560,
+        "stride_wn": 2560,
+        "k_per_split": 2560,
+        "num_tiles": 48,
+        "eps": 0.0
+      },
+      "constexpr": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "launch_options": {
+        "num_warps": 8,
+        "num_stages": 4,
+        "num_ctas": "native default 1; verify",
+        "enable_fp_fusion": "native default True; verify"
+      },
+      "grid_assuming_132_SMs": [
+        48
+      ],
+      "part_bytes": 0,
+      "reduction": null
+    },
+    {
+      "id": "B_o",
+      "optional": false,
+      "shape_MNK": [
+        64,
+        2560,
+        4096
+      ],
+      "kernel": "kernels.gemm._skinny_kernel",
+      "tensor_signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "y_ptr": "*bf16 (alias a)",
+        "wn_ptr": "*bf16 (alias w)",
+        "xout_ptr": "*bf16 (alias a; NORM=False)"
+      },
+      "runtime_scalars": {
+        "M": 64,
+        "N": 2560,
+        "K": 4096,
+        "stride_am": 4096,
+        "stride_wn": 4096,
+        "k_per_split": 4096,
+        "num_tiles": 20,
+        "eps": 0.0
+      },
+      "constexpr": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "launch_options": {
+        "num_warps": 8,
+        "num_stages": 4,
+        "num_ctas": "native default 1; verify",
+        "enable_fp_fusion": "native default True; verify"
+      },
+      "grid_assuming_132_SMs": [
+        20
+      ],
+      "part_bytes": 0,
+      "reduction": null
+    },
+    {
+      "id": "B_d",
+      "optional": false,
+      "shape_MNK": [
+        64,
+        2560,
+        9728
+      ],
+      "kernel": "kernels.gemm._skinny_kernel",
+      "tensor_signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "y_ptr": "*bf16 (alias a)",
+        "wn_ptr": "*bf16 (alias w)",
+        "xout_ptr": "*bf16 (alias a; NORM=False)"
+      },
+      "runtime_scalars": {
+        "M": 64,
+        "N": 2560,
+        "K": 9728,
+        "stride_am": 9728,
+        "stride_wn": 9728,
+        "k_per_split": 9728,
+        "num_tiles": 20,
+        "eps": 0.0
+      },
+      "constexpr": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "launch_options": {
+        "num_warps": 8,
+        "num_stages": 4,
+        "num_ctas": "native default 1; verify",
+        "enable_fp_fusion": "native default True; verify"
+      },
+      "grid_assuming_132_SMs": [
+        20
+      ],
+      "part_bytes": 0,
+      "reduction": null
+    },
+    {
+      "id": "B_lm",
+      "optional": false,
+      "shape_MNK": [
+        64,
+        151936,
+        2560
+      ],
+      "kernel": "kernels.gemm._skinny_kernel",
+      "tensor_signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "y_ptr": "*bf16 (alias a)",
+        "wn_ptr": "*bf16 (alias w)",
+        "xout_ptr": "*bf16 (alias a; NORM=False)"
+      },
+      "runtime_scalars": {
+        "M": 64,
+        "N": 151936,
+        "K": 2560,
+        "stride_am": 2560,
+        "stride_wn": 2560,
+        "k_per_split": 2560,
+        "num_tiles": 1187,
+        "eps": 0.0
+      },
+      "constexpr": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "launch_options": {
+        "num_warps": 8,
+        "num_stages": 4,
+        "num_ctas": "native default 1; verify",
+        "enable_fp_fusion": "native default True; verify"
+      },
+      "grid_assuming_132_SMs": [
+        132
+      ],
+      "part_bytes": 0,
+      "reduction": null
+    },
+    {
+      "id": "C_qkv",
+      "optional": false,
+      "shape_MNK": [
+        64,
+        6144,
+        2560
+      ],
+      "kernel": "kernels.gemm._skinny_kernel",
+      "tensor_signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*fp32",
+        "y_ptr": "*bf16 (alias a)",
+        "wn_ptr": "*bf16 (alias w)",
+        "xout_ptr": "*bf16 (alias a; NORM=False)"
+      },
+      "runtime_scalars": {
+        "M": 64,
+        "N": 6144,
+        "K": 2560,
+        "stride_am": 2560,
+        "stride_wn": 2560,
+        "k_per_split": 1280,
+        "num_tiles": 96,
+        "eps": 0.0
+      },
+      "constexpr": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 2,
+        "NORM": false
+      },
+      "launch_options": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "num_ctas": "native default 1; verify",
+        "enable_fp_fusion": "native default True; verify"
+      },
+      "grid_assuming_132_SMs": [
+        96
+      ],
+      "part_bytes": 3145728,
+      "reduction": {
+        "kernel": "kernels.gemm._sum_kernel",
+        "signature": {
+          "part_ptr": "*fp32",
+          "c_ptr": "*bf16",
+          "MN": "i32"
+        },
+        "runtime_scalars": {
+          "MN": 393216
+        },
+        "constexpr": {
+          "SPLIT_K": 2,
+          "BLOCK": 1024
+        },
+        "launch_options": {
+          "num_warps": 4,
+          "num_stages": "native default 3; verify"
+        },
+        "grid": [
+          384
+        ]
+      }
+    },
+    {
+      "id": "C_o",
+      "optional": false,
+      "shape_MNK": [
+        64,
+        2560,
+        4096
+      ],
+      "kernel": "kernels.gemm._skinny_kernel",
+      "tensor_signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*fp32",
+        "y_ptr": "*bf16 (alias a)",
+        "wn_ptr": "*bf16 (alias w)",
+        "xout_ptr": "*bf16 (alias a; NORM=False)"
+      },
+      "runtime_scalars": {
+        "M": 64,
+        "N": 2560,
+        "K": 4096,
+        "stride_am": 4096,
+        "stride_wn": 4096,
+        "k_per_split": 2048,
+        "num_tiles": 40,
+        "eps": 0.0
+      },
+      "constexpr": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 2,
+        "NORM": false
+      },
+      "launch_options": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "num_ctas": "native default 1; verify",
+        "enable_fp_fusion": "native default True; verify"
+      },
+      "grid_assuming_132_SMs": [
+        40
+      ],
+      "part_bytes": 1310720,
+      "reduction": {
+        "kernel": "kernels.gemm._sum_kernel",
+        "signature": {
+          "part_ptr": "*fp32",
+          "c_ptr": "*bf16",
+          "MN": "i32"
+        },
+        "runtime_scalars": {
+          "MN": 163840
+        },
+        "constexpr": {
+          "SPLIT_K": 2,
+          "BLOCK": 1024
+        },
+        "launch_options": {
+          "num_warps": 4,
+          "num_stages": "native default 3; verify"
+        },
+        "grid": [
+          160
+        ]
+      }
+    },
+    {
+      "id": "C_d",
+      "optional": false,
+      "shape_MNK": [
+        64,
+        2560,
+        9728
+      ],
+      "kernel": "kernels.gemm._skinny_kernel",
+      "tensor_signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*fp32",
+        "y_ptr": "*bf16 (alias a)",
+        "wn_ptr": "*bf16 (alias w)",
+        "xout_ptr": "*bf16 (alias a; NORM=False)"
+      },
+      "runtime_scalars": {
+        "M": 64,
+        "N": 2560,
+        "K": 9728,
+        "stride_am": 9728,
+        "stride_wn": 9728,
+        "k_per_split": 4864,
+        "num_tiles": 40,
+        "eps": 0.0
+      },
+      "constexpr": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 2,
+        "NORM": false
+      },
+      "launch_options": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "num_ctas": "native default 1; verify",
+        "enable_fp_fusion": "native default True; verify"
+      },
+      "grid_assuming_132_SMs": [
+        40
+      ],
+      "part_bytes": 1310720,
+      "reduction": {
+        "kernel": "kernels.gemm._sum_kernel",
+        "signature": {
+          "part_ptr": "*fp32",
+          "c_ptr": "*bf16",
+          "MN": "i32"
+        },
+        "runtime_scalars": {
+          "MN": 163840
+        },
+        "constexpr": {
+          "SPLIT_K": 2,
+          "BLOCK": 1024
+        },
+        "launch_options": {
+          "num_warps": 4,
+          "num_stages": "native default 3; verify"
+        },
+        "grid": [
+          160
+        ]
+      }
+    },
+    {
+      "id": "C_lm",
+      "optional": false,
+      "shape_MNK": [
+        64,
+        151936,
+        2560
+      ],
+      "kernel": "kernels.gemm._skinny_kernel",
+      "tensor_signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*fp32",
+        "y_ptr": "*bf16 (alias a)",
+        "wn_ptr": "*bf16 (alias w)",
+        "xout_ptr": "*bf16 (alias a; NORM=False)"
+      },
+      "runtime_scalars": {
+        "M": 64,
+        "N": 151936,
+        "K": 2560,
+        "stride_am": 2560,
+        "stride_wn": 2560,
+        "k_per_split": 1280,
+        "num_tiles": 2374,
+        "eps": 0.0
+      },
+      "constexpr": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 2,
+        "NORM": false
+      },
+      "launch_options": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "num_ctas": "native default 1; verify",
+        "enable_fp_fusion": "native default True; verify"
+      },
+      "grid_assuming_132_SMs": [
+        264
+      ],
+      "part_bytes": 77791232,
+      "reduction": {
+        "kernel": "kernels.gemm._sum_kernel",
+        "signature": {
+          "part_ptr": "*fp32",
+          "c_ptr": "*bf16",
+          "MN": "i32"
+        },
+        "runtime_scalars": {
+          "MN": 9723904
+        },
+        "constexpr": {
+          "SPLIT_K": 2,
+          "BLOCK": 1024
+        },
+        "launch_options": {
+          "num_warps": 4,
+          "num_stages": "native default 3; verify"
+        },
+        "grid": [
+          9496
+        ]
+      }
+    }
+  ],
+  "reduction_launches": 4,
+  "distinct_native_keys": 7,
+  "native_key_evidence": "NATIVE_BINDER_KEYS.json",
+  "candidate_source_set_sha256": "0d23da3fc2a5523b6ca207af5049f812344e326137fc454c81299a6362c806ad",
+  "source_manifest": "SOURCE_MANIFEST.json",
+  "binder_generator": "derive_native_keys.py",
+  "minimal_representatives": [
+    "A_qkv_main",
+    "A_o_main",
+    "B_qkv_main",
+    "B_o_main",
+    "C_qkv_main",
+    "C_o_main",
+    "C_qkv_sum"
+  ],
+  "native_worker_rule": "Recompute actual kernel.binder and _get_config in pinned Triton 3.1.0 from frozen source; compare every 16 launch record with NATIVE_BINDER_KEYS.json. Then compile exactly these seven representatives; stop on differing keys/attrs/signatures instead of expanding. No GPU context, model import, execution or retries."
+}

@@ -1,0 +1,841 @@
+{
+  "method": "Executed exact pinned Triton 3.1 Python binder/compute_spec_key/mangle_type/KernelParam and _get_config. Only _get_config relative import replaced by same-field namedtuple AttrsDescriptor. Kernel inspect.Signature reconstructed directly from AST args/annotations. No torch/GPU/Triton compiler import. Native compiler worker must revalidate these keys before compiling.",
+  "jit_source_sha256": "7542bf9254646331ed90ce16fe1bfb2caf87d77d748d84396aab44c8027d508b",
+  "jit_source_url": "https://github.com/triton-lang/triton/blob/v3.1.0/python/triton/runtime/jit.py",
+  "kernel_source_sha256": "89bb37e315fa66694c6451ce5f5926ce9e1918b2a51c4131aae338125e9f3a4d",
+  "launch_count": 16,
+  "distinct_keys": 7,
+  "groups": {
+    "b56a3c3fe2ef0622a90b6fac85d9ce6a88a423b0c3c151867241ff2d1e64adb8": [
+      "A_qkv_main"
+    ],
+    "60639ebd36a06472bb21e3b08b7b342df48e16bc0225557c9ff15a3c166a9a5f": [
+      "A_o_main",
+      "A_d_main",
+      "A_lm_main"
+    ],
+    "b344512fe23e90786a47aef020d3806c16158f81f73f7c3a40f8912bbf421ada": [
+      "B_qkv_main"
+    ],
+    "c47cc6730af3ba9a2058037e18485b38f5e3cc026703739b9e4f33a3cbac46e2": [
+      "B_o_main",
+      "B_d_main",
+      "B_lm_main"
+    ],
+    "a851ca44d4cce8b960a2b7e13f020d888fa8b1ca05f486cc108e052dbb2c7cc7": [
+      "C_qkv_main"
+    ],
+    "4d3609ff7428471ad9ebd61319c4927059d0f16e956a7730a26b567db0af5ad3": [
+      "C_qkv_sum",
+      "C_o_sum",
+      "C_d_sum",
+      "C_lm_sum"
+    ],
+    "f8afe4a72492fafaa05a44f2f3c1296e81791d37076151c50199753573854d7f": [
+      "C_o_main",
+      "C_d_main",
+      "C_lm_main"
+    ]
+  },
+  "launches": [
+    {
+      "launch": "A_qkv_main",
+      "kernel": "_skinny_kernel",
+      "native_key_sha256": "b56a3c3fe2ef0622a90b6fac85d9ce6a88a423b0c3c151867241ff2d1e64adb8",
+      "signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "M": "i32",
+        "N": "i32",
+        "K": "i32",
+        "stride_am": "i32",
+        "stride_wn": "i32",
+        "k_per_split": "i32",
+        "num_tiles": "i32",
+        "y_ptr": "*bf16",
+        "wn_ptr": "*bf16",
+        "xout_ptr": "*bf16",
+        "eps": "fp32"
+      },
+      "constants": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 64,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          15,
+          16,
+          17,
+          19
+        ],
+        "equal_to_1": [
+          18
+        ]
+      },
+      "options_explicit": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "debug": null
+      }
+    },
+    {
+      "launch": "A_o_main",
+      "kernel": "_skinny_kernel",
+      "native_key_sha256": "60639ebd36a06472bb21e3b08b7b342df48e16bc0225557c9ff15a3c166a9a5f",
+      "signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "M": "i32",
+        "N": "i32",
+        "K": "i32",
+        "stride_am": "i32",
+        "stride_wn": "i32",
+        "k_per_split": "i32",
+        "num_tiles": "i32",
+        "y_ptr": "*bf16",
+        "wn_ptr": "*bf16",
+        "xout_ptr": "*bf16",
+        "eps": "fp32"
+      },
+      "constants": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 64,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          11,
+          12,
+          13,
+          15,
+          16,
+          17,
+          19
+        ],
+        "equal_to_1": [
+          18
+        ]
+      },
+      "options_explicit": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "debug": null
+      }
+    },
+    {
+      "launch": "A_d_main",
+      "kernel": "_skinny_kernel",
+      "native_key_sha256": "60639ebd36a06472bb21e3b08b7b342df48e16bc0225557c9ff15a3c166a9a5f",
+      "signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "M": "i32",
+        "N": "i32",
+        "K": "i32",
+        "stride_am": "i32",
+        "stride_wn": "i32",
+        "k_per_split": "i32",
+        "num_tiles": "i32",
+        "y_ptr": "*bf16",
+        "wn_ptr": "*bf16",
+        "xout_ptr": "*bf16",
+        "eps": "fp32"
+      },
+      "constants": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 64,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          11,
+          12,
+          13,
+          15,
+          16,
+          17,
+          19
+        ],
+        "equal_to_1": [
+          18
+        ]
+      },
+      "options_explicit": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "debug": null
+      }
+    },
+    {
+      "launch": "A_lm_main",
+      "kernel": "_skinny_kernel",
+      "native_key_sha256": "60639ebd36a06472bb21e3b08b7b342df48e16bc0225557c9ff15a3c166a9a5f",
+      "signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "M": "i32",
+        "N": "i32",
+        "K": "i32",
+        "stride_am": "i32",
+        "stride_wn": "i32",
+        "k_per_split": "i32",
+        "num_tiles": "i32",
+        "y_ptr": "*bf16",
+        "wn_ptr": "*bf16",
+        "xout_ptr": "*bf16",
+        "eps": "fp32"
+      },
+      "constants": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 64,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          11,
+          12,
+          13,
+          15,
+          16,
+          17,
+          19
+        ],
+        "equal_to_1": [
+          18
+        ]
+      },
+      "options_explicit": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "debug": null
+      }
+    },
+    {
+      "launch": "B_qkv_main",
+      "kernel": "_skinny_kernel",
+      "native_key_sha256": "b344512fe23e90786a47aef020d3806c16158f81f73f7c3a40f8912bbf421ada",
+      "signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "M": "i32",
+        "N": "i32",
+        "K": "i32",
+        "stride_am": "i32",
+        "stride_wn": "i32",
+        "k_per_split": "i32",
+        "num_tiles": "i32",
+        "y_ptr": "*bf16",
+        "wn_ptr": "*bf16",
+        "xout_ptr": "*bf16",
+        "eps": "fp32"
+      },
+      "constants": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          15,
+          16,
+          17,
+          19
+        ],
+        "equal_to_1": [
+          18
+        ]
+      },
+      "options_explicit": {
+        "num_warps": 8,
+        "num_stages": 4,
+        "debug": null
+      }
+    },
+    {
+      "launch": "B_o_main",
+      "kernel": "_skinny_kernel",
+      "native_key_sha256": "c47cc6730af3ba9a2058037e18485b38f5e3cc026703739b9e4f33a3cbac46e2",
+      "signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "M": "i32",
+        "N": "i32",
+        "K": "i32",
+        "stride_am": "i32",
+        "stride_wn": "i32",
+        "k_per_split": "i32",
+        "num_tiles": "i32",
+        "y_ptr": "*bf16",
+        "wn_ptr": "*bf16",
+        "xout_ptr": "*bf16",
+        "eps": "fp32"
+      },
+      "constants": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          11,
+          12,
+          13,
+          15,
+          16,
+          17,
+          19
+        ],
+        "equal_to_1": [
+          18
+        ]
+      },
+      "options_explicit": {
+        "num_warps": 8,
+        "num_stages": 4,
+        "debug": null
+      }
+    },
+    {
+      "launch": "B_d_main",
+      "kernel": "_skinny_kernel",
+      "native_key_sha256": "c47cc6730af3ba9a2058037e18485b38f5e3cc026703739b9e4f33a3cbac46e2",
+      "signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "M": "i32",
+        "N": "i32",
+        "K": "i32",
+        "stride_am": "i32",
+        "stride_wn": "i32",
+        "k_per_split": "i32",
+        "num_tiles": "i32",
+        "y_ptr": "*bf16",
+        "wn_ptr": "*bf16",
+        "xout_ptr": "*bf16",
+        "eps": "fp32"
+      },
+      "constants": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          11,
+          12,
+          13,
+          15,
+          16,
+          17,
+          19
+        ],
+        "equal_to_1": [
+          18
+        ]
+      },
+      "options_explicit": {
+        "num_warps": 8,
+        "num_stages": 4,
+        "debug": null
+      }
+    },
+    {
+      "launch": "B_lm_main",
+      "kernel": "_skinny_kernel",
+      "native_key_sha256": "c47cc6730af3ba9a2058037e18485b38f5e3cc026703739b9e4f33a3cbac46e2",
+      "signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*bf16",
+        "M": "i32",
+        "N": "i32",
+        "K": "i32",
+        "stride_am": "i32",
+        "stride_wn": "i32",
+        "k_per_split": "i32",
+        "num_tiles": "i32",
+        "y_ptr": "*bf16",
+        "wn_ptr": "*bf16",
+        "xout_ptr": "*bf16",
+        "eps": "fp32"
+      },
+      "constants": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 1,
+        "NORM": false
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          11,
+          12,
+          13,
+          15,
+          16,
+          17,
+          19
+        ],
+        "equal_to_1": [
+          18
+        ]
+      },
+      "options_explicit": {
+        "num_warps": 8,
+        "num_stages": 4,
+        "debug": null
+      }
+    },
+    {
+      "launch": "C_qkv_main",
+      "kernel": "_skinny_kernel",
+      "native_key_sha256": "a851ca44d4cce8b960a2b7e13f020d888fa8b1ca05f486cc108e052dbb2c7cc7",
+      "signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*fp32",
+        "M": "i32",
+        "N": "i32",
+        "K": "i32",
+        "stride_am": "i32",
+        "stride_wn": "i32",
+        "k_per_split": "i32",
+        "num_tiles": "i32",
+        "y_ptr": "*bf16",
+        "wn_ptr": "*bf16",
+        "xout_ptr": "*bf16",
+        "eps": "fp32"
+      },
+      "constants": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 2,
+        "NORM": false
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          15,
+          16,
+          17,
+          19
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "debug": null
+      }
+    },
+    {
+      "launch": "C_qkv_sum",
+      "kernel": "_sum_kernel",
+      "native_key_sha256": "4d3609ff7428471ad9ebd61319c4927059d0f16e956a7730a26b567db0af5ad3",
+      "signature": {
+        "part_ptr": "*fp32",
+        "c_ptr": "*bf16",
+        "MN": "i32"
+      },
+      "constants": {
+        "SPLIT_K": 2,
+        "BLOCK": 1024
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          4
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 4,
+        "debug": null
+      }
+    },
+    {
+      "launch": "C_o_main",
+      "kernel": "_skinny_kernel",
+      "native_key_sha256": "f8afe4a72492fafaa05a44f2f3c1296e81791d37076151c50199753573854d7f",
+      "signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*fp32",
+        "M": "i32",
+        "N": "i32",
+        "K": "i32",
+        "stride_am": "i32",
+        "stride_wn": "i32",
+        "k_per_split": "i32",
+        "num_tiles": "i32",
+        "y_ptr": "*bf16",
+        "wn_ptr": "*bf16",
+        "xout_ptr": "*bf16",
+        "eps": "fp32"
+      },
+      "constants": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 2,
+        "NORM": false
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          11,
+          12,
+          13,
+          15,
+          16,
+          17,
+          19
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "debug": null
+      }
+    },
+    {
+      "launch": "C_o_sum",
+      "kernel": "_sum_kernel",
+      "native_key_sha256": "4d3609ff7428471ad9ebd61319c4927059d0f16e956a7730a26b567db0af5ad3",
+      "signature": {
+        "part_ptr": "*fp32",
+        "c_ptr": "*bf16",
+        "MN": "i32"
+      },
+      "constants": {
+        "SPLIT_K": 2,
+        "BLOCK": 1024
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          4
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 4,
+        "debug": null
+      }
+    },
+    {
+      "launch": "C_d_main",
+      "kernel": "_skinny_kernel",
+      "native_key_sha256": "f8afe4a72492fafaa05a44f2f3c1296e81791d37076151c50199753573854d7f",
+      "signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*fp32",
+        "M": "i32",
+        "N": "i32",
+        "K": "i32",
+        "stride_am": "i32",
+        "stride_wn": "i32",
+        "k_per_split": "i32",
+        "num_tiles": "i32",
+        "y_ptr": "*bf16",
+        "wn_ptr": "*bf16",
+        "xout_ptr": "*bf16",
+        "eps": "fp32"
+      },
+      "constants": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 2,
+        "NORM": false
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          11,
+          12,
+          13,
+          15,
+          16,
+          17,
+          19
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "debug": null
+      }
+    },
+    {
+      "launch": "C_d_sum",
+      "kernel": "_sum_kernel",
+      "native_key_sha256": "4d3609ff7428471ad9ebd61319c4927059d0f16e956a7730a26b567db0af5ad3",
+      "signature": {
+        "part_ptr": "*fp32",
+        "c_ptr": "*bf16",
+        "MN": "i32"
+      },
+      "constants": {
+        "SPLIT_K": 2,
+        "BLOCK": 1024
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          4
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 4,
+        "debug": null
+      }
+    },
+    {
+      "launch": "C_lm_main",
+      "kernel": "_skinny_kernel",
+      "native_key_sha256": "f8afe4a72492fafaa05a44f2f3c1296e81791d37076151c50199753573854d7f",
+      "signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "part_ptr": "*fp32",
+        "M": "i32",
+        "N": "i32",
+        "K": "i32",
+        "stride_am": "i32",
+        "stride_wn": "i32",
+        "k_per_split": "i32",
+        "num_tiles": "i32",
+        "y_ptr": "*bf16",
+        "wn_ptr": "*bf16",
+        "xout_ptr": "*bf16",
+        "eps": "fp32"
+      },
+      "constants": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 128,
+        "BLOCK_K": 64,
+        "SPLIT_K": 2,
+        "NORM": false
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          11,
+          12,
+          13,
+          15,
+          16,
+          17,
+          19
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "debug": null
+      }
+    },
+    {
+      "launch": "C_lm_sum",
+      "kernel": "_sum_kernel",
+      "native_key_sha256": "4d3609ff7428471ad9ebd61319c4927059d0f16e956a7730a26b567db0af5ad3",
+      "signature": {
+        "part_ptr": "*fp32",
+        "c_ptr": "*bf16",
+        "MN": "i32"
+      },
+      "constants": {
+        "SPLIT_K": 2,
+        "BLOCK": 1024
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          4
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 4,
+        "debug": null
+      }
+    }
+  ]
+}

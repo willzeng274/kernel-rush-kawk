@@ -1,0 +1,180 @@
+{
+  "status": "passed",
+  "checks": [
+    "all three configs, all 36 layer weights, norm identity, gate/up preserved",
+    "fewer than 42 seconds retains original",
+    "exact 42-second admission is allowed",
+    "off-shape retains original",
+    "misaligned weight retains original",
+    "capture no-op retains original",
+    "local deadline after partial winners discards entire suite",
+    "shared 24-second reserve aborts entire suite",
+    "all slower alternatives retain original call objects",
+    "nonfinite/error rejection nan",
+    "nonfinite/error rejection inf",
+    "nonfinite/error rejection 100.0",
+    "pointwise check rejects local error hidden by global max",
+    "LM argmax flip rejects numerically close candidate",
+    "residual mismatch rejects normed candidate",
+    "lowest worst-ratio candidate wins each operation",
+    "one losing order rejects candidate despite fast other order",
+    "exact three-percent boundary does not clear strict gain requirement",
+    "nonfinite timing after earlier winners abandons entire suite",
+    "owned timer releases graph/output owners only after three drains",
+    "successful recovery drain propagates original error",
+    "sticky failure quarantines graph/stream/output and blocks fallback/reuse",
+    "final drain failure quarantines original and selected ownership",
+    "12 exact host launches retain BF16 inputs/outputs and four FP32 split reductions"
+  ],
+  "check_count": 24,
+  "launches": [
+    {
+      "config": "n64-k64-s1",
+      "shape": [
+        64,
+        6144,
+        2560
+      ],
+      "grid": [
+        96
+      ],
+      "part_dtype": null
+    },
+    {
+      "config": "n64-k64-s1",
+      "shape": [
+        64,
+        2560,
+        4096
+      ],
+      "grid": [
+        40
+      ],
+      "part_dtype": null
+    },
+    {
+      "config": "n64-k64-s1",
+      "shape": [
+        64,
+        2560,
+        9728
+      ],
+      "grid": [
+        40
+      ],
+      "part_dtype": null
+    },
+    {
+      "config": "n64-k64-s1",
+      "shape": [
+        64,
+        151936,
+        2560
+      ],
+      "grid": [
+        132
+      ],
+      "part_dtype": null
+    },
+    {
+      "config": "n128-k64-s1",
+      "shape": [
+        64,
+        6144,
+        2560
+      ],
+      "grid": [
+        48
+      ],
+      "part_dtype": null
+    },
+    {
+      "config": "n128-k64-s1",
+      "shape": [
+        64,
+        2560,
+        4096
+      ],
+      "grid": [
+        20
+      ],
+      "part_dtype": null
+    },
+    {
+      "config": "n128-k64-s1",
+      "shape": [
+        64,
+        2560,
+        9728
+      ],
+      "grid": [
+        20
+      ],
+      "part_dtype": null
+    },
+    {
+      "config": "n128-k64-s1",
+      "shape": [
+        64,
+        151936,
+        2560
+      ],
+      "grid": [
+        132
+      ],
+      "part_dtype": null
+    },
+    {
+      "config": "n128-k64-s2",
+      "shape": [
+        64,
+        6144,
+        2560
+      ],
+      "grid": [
+        96
+      ],
+      "part_dtype": "fp32"
+    },
+    {
+      "config": "n128-k64-s2",
+      "shape": [
+        64,
+        2560,
+        4096
+      ],
+      "grid": [
+        40
+      ],
+      "part_dtype": "fp32"
+    },
+    {
+      "config": "n128-k64-s2",
+      "shape": [
+        64,
+        2560,
+        9728
+      ],
+      "grid": [
+        40
+      ],
+      "part_dtype": "fp32"
+    },
+    {
+      "config": "n128-k64-s2",
+      "shape": [
+        64,
+        151936,
+        2560
+      ],
+      "grid": [
+        264
+      ],
+      "part_dtype": "fp32"
+    }
+  ],
+  "device_arithmetic_tested": false,
+  "gpu_execution": false,
+  "compiler_execution": false,
+  "limitations": "Mock tensors test control policy and ownership only; unchanged real host launcher is exercised with recorded device calls. No BF16 GEMM correctness or actual GPU timing evidence."
+}

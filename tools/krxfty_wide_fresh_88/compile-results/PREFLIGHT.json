@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "source_set_sha256": "0d23da3fc2a5523b6ca207af5049f812344e326137fc454c81299a6362c806ad",
+  "engine_files": 19,
+  "preparation_files": 23,
+  "compile_calls_planned": 7,
+  "cuda_execution": false,
+  "compiler_imported": false
+}

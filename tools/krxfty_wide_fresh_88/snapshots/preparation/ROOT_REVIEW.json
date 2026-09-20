@@ -1,0 +1,14 @@
+{
+  "reviewed_at_utc": "2026-09-20T09:02:56.968115+00:00",
+  "status": "SOURCE_AND_CPU_REVIEW_PASSED_COMPILER_PENDING",
+  "source_set_sha256": "0d23da3fc2a5523b6ca207af5049f812344e326137fc454c81299a6362c806ad",
+  "review": [
+    "Full selector, model hook, relevant SkinnyMatmul/device functions and launch path read",
+    "Full CPU harness/results24 policy/lifetime cases and12 hostlaunches read; no device arithmetic proof",
+    "Full report,16case plan and native binder derivation read",
+    "19 source/archive members independently hash checked;17 existing files base-identical",
+    "Seven native key build plan authorized only after exact native worker revalidation"
+  ],
+  "compiler_agent": "/root/krxfty_wide_compile_fresh_88",
+  "gpu_execution": false
+}

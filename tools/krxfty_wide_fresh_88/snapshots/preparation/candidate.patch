@@ -1,0 +1,291 @@
+--- /dev/null
++++ b/engine/kernels/m64_matmul_selection.py
+@@ -0,0 +1,267 @@
++"""Bounded M64 projection selection on exact candidate83.
++
++No new device kernel: the existing single-M-tile SkinnyMatmul accepts a
++BLOCK_M constexpr. Only this isolated wrapper sets it to 64. The default
++selector offers three fixed configurations, including FP32 split-K partials.
++"""
++
++import math
++import time
++
++import torch
++
++import budget
++from kernels.add_rmsnorm import add_rms_norm
++from kernels.gemm import SkinnyMatmul
++
++
++CONFIGS = (
++    ("n64-k64-s1", dict(block_n=64, block_k=64, split_k=1,
++                        num_warps=8, num_stages=3, persist=1)),
++    ("n128-k64-s1", dict(block_n=128, block_k=64, split_k=1,
++                         num_warps=8, num_stages=4, persist=1)),
++    ("n128-k64-s2", dict(block_n=128, block_k=64, split_k=2,
++                         num_warps=8, num_stages=3, persist=2)),
++)
++
++_QUARANTINED = []
++
++
++class SelectionDrainFailed(BaseException):
++    """Fatal: bypass ordinary engine fallbacks after an unconfirmed CUDA drain."""
++
++
++def _owned_time(fn, records, owners):
++    """Same graph/event measurement as the original picker, with 36 calls.
++
++    Hold the current output and every asynchronous owner until synchronization
++    succeeds. On failure, the caller drains or quarantines this entire record.
++    The baseline and candidate use the same ownership and allocation policy.
++    """
++    owner = {"fn": fn, "records": records}
++    owners.append(owner)
++    stream = torch.cuda.Stream()
++    owner["stream"] = stream
++    stream.wait_stream(torch.cuda.current_stream())
++
++    def call(index):
++        owner["last_output"] = fn(records[index % len(records)])
++
++    with torch.cuda.stream(stream):
++        for i in range(3):
++            call(i)
++    torch.cuda.current_stream().wait_stream(stream)
++    torch.cuda.synchronize()
++    graph = torch.cuda.CUDAGraph()
++    owner["graph"] = graph
++    capture = torch.cuda.graph(graph)
++    owner["capture"] = capture
++    with capture:
++        for i in range(36):
++            call(i)
++    graph.replay()
++    torch.cuda.synchronize()
++    start, end = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
++    owner["events"] = (start, end)
++    start.record()
++    for _ in range(3):
++        graph.replay()
++    end.record()
++    torch.cuda.synchronize()
++    ms = start.elapsed_time(end) / 108
++    # Release potentially large graph pools only after all work has drained.
++    owners.remove(owner)
++    return ms
++
++
++class _Wide64Matmul(SkinnyMatmul):
++    def __init__(self, N, K, device, cfg):
++        super().__init__(64, N, K, device, **cfg)
++        # The parent grid covers N and K only; there is exactly one M tile.
++        # Changing this wrapper cannot affect any existing narrow instance.
++        self.BLOCK_M = 64
++
++
++def _candidate(N, K, device, cfg, normed, eps):
++    mm = _Wide64Matmul(N, K, device, cfg)
++    if not normed:
++        return lambda a, w: mm(a, w)
++
++    def full_call(x, y, w_norm, xout, w):
++        # Preserve the original residual sum, norm casts and output ownership.
++        normalized = add_rms_norm(x, y, w_norm, eps, xout)
++        return mm(normalized, w)
++
++    return full_call
++
++
++def select_m64_projections(original, model, x, y, a, act, log=None):
++    if _QUARANTINED:
++        raise SelectionDrainFailed("M64 selector cannot be reused after a failed drain")
++    # A capture-time no-op must not itself synchronize the capturing stream.
++    if torch.cuda.is_current_stream_capturing():
++        return original
++    owners = [dict(original=original, model=model, x=x, y=y, a=a, act=act)]
++    try:
++        result = _select_m64_projections(original, model, x, y, a, act, owners, log)
++    except BaseException as exc:
++        try:
++            torch.cuda.synchronize()
++        except BaseException as drain_error:
++            # The original traceback also owns in-flight validation outputs.
++            _QUARANTINED.append((owners, exc, drain_error))
++            raise SelectionDrainFailed("M64 selector CUDA drain failed; owners quarantined") from exc
++        raise
++    try:
++        torch.cuda.synchronize()
++    except BaseException as exc:
++        _QUARANTINED.append((owners, result, exc))
++        raise SelectionDrainFailed("M64 selector final drain failed; owners quarantined") from exc
++    return result
++
++
++def _select_m64_projections(original, model, x, y, a, act, owners, log=None):
++    """Select complete QKV/O/down/LM calls; retain the original gate/up call.
++
++    This is optional warmup work. Eighteen seconds is an admission deadline,
++    not preemption of a running compilation, synchronization or graph timing.
++    At least 24 seconds of the existing shared budget is reserved. Any
++    incomplete comparison abandons the complete suite of proposed changes.
++
++    No exception is swallowed: in particular, continuing after a sticky
++    CUDA error is unsafe. Out-of-resource configurations must be eliminated
++    in the separately authorized compile review before this can be deployed.
++    """
++    def emit(message):
++        if log:
++            log("M64 projections: " + message)
++
++    def aligned(tensor, shape):
++        return (tuple(tensor.shape) == shape
++                and tensor.dtype == torch.bfloat16 and tensor.is_cuda
++                and tensor.device == x.device and tensor.is_contiguous()
++                and tensor.data_ptr() % 16 == 0)
++
++    remaining = budget.remaining()
++    if not math.isfinite(remaining) or remaining < 42.0:
++        emit("original calls retained: shared budget has fewer than 42s")
++        return original
++    if (len(model.layers) != 36
++            or not all(aligned(t, (64, 2560)) for t in (x, y))
++            or not aligned(a, (64, 4096))
++            or not aligned(act, (64, 9728))
++            or torch.cuda.get_device_capability(x.device) != (9, 0)
++            or torch.cuda.is_current_stream_capturing()):
++        emit("original calls retained: unsupported shape, device or capture")
++        return original
++
++    layers = model.layers
++    contexts = (
++        dict(name="qkv", source=x, normed=True, N=6144, K=2560,
++             records=[(l.wqkv, l.in_norm) for l in layers]),
++        dict(name="o", source=a, normed=False, N=2560, K=4096,
++             records=[(l.wo, None) for l in layers]),
++        dict(name="d", source=act, normed=False, N=2560, K=9728,
++             records=[(l.wd, None) for l in layers]),
++        dict(name="lm", source=x, normed=True, N=151936, K=2560,
++             records=[(model.lm_head, model.final_norm)]),
++    )
++    owners.append(contexts)
++    for ctx in contexts:
++        for w, wn in ctx["records"]:
++            if (not aligned(w, (ctx["N"], ctx["K"]))
++                    or (ctx["normed"] and not aligned(wn, (2560,)))):
++                emit("original calls retained: unsupported weight layout")
++                return original
++
++    deadline = time.monotonic() + min(18.0, budget.remaining() - 24.0)
++
++    def available():
++        return budget.remaining() >= 24.0 and time.monotonic() < deadline
++
++    def incomplete():
++        emit("original calls retained: comparison suite incomplete")
++        return original
++
++    selected = dict(original)
++    owners.append(selected)
++    validation = {}
++    owners.append(validation)
++    selections = []
++    for ctx in contexts:
++        if not available():
++            return incomplete()
++        name = ctx["name"]
++        baseline = original[name]
++        # This output is fresh and cannot alias either residual input.
++        xout = torch.empty_like(x) if ctx["normed"] else None
++        if xout is not None:
++            owners.append(xout)
++
++        def invoke(fn, record):
++            w, wn = record
++            if ctx["normed"]:
++                return fn(ctx["source"], y, wn, xout, w)
++            return fn(ctx["source"], w)
++
++        def measured(fn):
++            return _owned_time(lambda record: invoke(fn, record), ctx["records"], owners)
++
++        winning_ratio, winning_name = 1.0, "original"
++        for cfg_name, cfg in CONFIGS:
++            if not available():
++                return incomplete()
++            candidate = _candidate(ctx["N"], ctx["K"], x.device, cfg,
++                                   ctx["normed"], model.cfg.eps)
++            owners.append(candidate)
++            valid, max_error = True, 0.0
++            for layer_index, record in enumerate(ctx["records"]):
++                if not available():
++                    return incomplete()
++                ref = invoke(baseline, record).float()
++                residual = xout.clone() if ctx["normed"] else None
++                validation.update(ref=ref, residual=residual)
++                if not available():
++                    return incomplete()
++                out = invoke(candidate, record).float()
++                validation["out"] = out
++                error = (out - ref).abs()
++                max_error = max(max_error, error.max().item())
++                valid = (torch.isfinite(ref).all().item()
++                         and torch.isfinite(out).all().item()
++                         and (error <= 0.02 * ref.abs() + 1e-3).all().item())
++                if valid and ctx["normed"]:
++                    valid = torch.equal(xout, residual)
++                if valid and name == "lm":
++                    valid = torch.equal(out.argmax(dim=-1), ref.argmax(dim=-1))
++                if not valid:
++                    emit(f"{name}/{cfg_name} rejected at layer {layer_index}; "
++                         f"max error {max_error:.4g}")
++                    break
++            if not valid:
++                continue
++            ratios = []
++            for order in (("baseline", "candidate"), ("candidate", "baseline")):
++                timings = {}
++                for which in order:
++                    if not available():
++                        return incomplete()
++                    ms = measured(baseline if which == "baseline" else candidate)
++                    if not math.isfinite(ms) or ms <= 0:
++                        emit("original calls retained: invalid timing")
++                        return original
++                    timings[which] = ms
++                ratios.append(timings["candidate"] / timings["baseline"])
++            if not available():
++                return incomplete()
++            worst_ratio = max(ratios)
++            emit(f"{name}/{cfg_name}: ratios {ratios[0]:.4f}/{ratios[1]:.4f}; "
++                 f"max error {max_error:.4g}")
++            if worst_ratio < 0.97 and worst_ratio < winning_ratio:
++                selected[name] = candidate
++                winning_ratio, winning_name = worst_ratio, cfg_name
++        selections.append(f"{name}={winning_name} ({winning_ratio:.4f})")
++    if not available():
++        return incomplete()
++    emit("selected " + ", ".join(selections))
++    return selected
+--- a/engine/model.py
++++ b/engine/model.py
+@@ -170,13 +170,17 @@
+             "lm": lambda x, y, wn, xout, w: lm(add_rms_norm(x, y, wn, cfg.eps, xout), w),
+         }
+     L = m.layers
+-    return {
++    selected = {
+         "qkv": pick_normed("matmul", x, y, layer.in_norm, layer.wqkv, cfg.eps, log, ws=[l.wqkv for l in L]),
+         "o": pick_matmul(a, layer.wo, log, ws=[l.wo for l in L]),
+         "gu": pick_normed("gateup", x, y, layer.post_norm, layer.wgu, cfg.eps, log, ws=[l.wgu for l in L]),
+         "d": pick_matmul(act, layer.wd, log, ws=[l.wd for l in L]),
+         "lm": pick_normed("matmul", x, y, m.final_norm, m.lm_head, cfg.eps, log),
+     }
++    if M == 64:
++        from kernels.m64_matmul_selection import select_m64_projections
++        selected = select_m64_projections(selected, m, x, y, a, act, log)
++    return selected
+ 
+ 
+ def run_layers(plan: "Plan", mm: dict, x: torch.Tensor, q_buf: torch.Tensor, attn_out: torch.Tensor,

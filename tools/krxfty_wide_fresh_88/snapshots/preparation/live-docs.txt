@@ -1,0 +1,364 @@
+Docs · Kernel RushSkip to contentkernelsAsk on Slack
+On this page
+
+Quickstart
+Your first run
+Teams and permissions
+
+Submissions
+What to submit
+Scoring and correctness
+Results and leaderboard
+
+Advanced
+Use the CLI
+Run on push
+Use the HTTP API
+
+Troubleshooting
+Glossary
+Participant guide
+From engine to leaderboard.
+Make Qwen3 4B decode faster without changing its output. Test your engine on an H100, then compare your team’s best tokens per second. Connect your repository in the browser, then push commits to submit your engine.
+Quickstart
+Your first run
+Check the whole workflow with a working engine before optimizing anything.
+Sign in with GitHub and create a team or join one. Ask a teammate for the six-character invite code; entering it joins immediately. You can leave a team from the Team page.
+Open the starter repository, select Use this template → Create a new repository, and clone your new repository. The included engine works as-is; run it unchanged to measure your starting throughput.
+Open Submissions, select Connect a repository, and set the engine folder to engine.
+Push a new commit to the default branch. Dryft submits the engine and starts an official run. Follow its state and results on the submission page.
+Improve engine/engine.py without changing its two methods. Give AGENTS.md to your coding agent; use agent/ if you want an automated research loop.
+Every run is an official run: it measures the hidden workloads and an eligible result ranks, higher measured throughput first. Before a GPU is allocated the archive is checked for what can be seen without running it (every file parses, engine.py exports an Engine with the two methods, and nothing is imported that the runtime does not have) and a submission that fails those is refused in a second rather than after a minute on an H100.
+Teams and permissions
+You can compete alone by creating a team. To invite someone, copy the invite code from Team. A code grants immediate membership, so share it only with intended teammates.
+Any member can use the starter repository, push engines to connected repositories, start and cancel runs, and read the team’s submissions, results, and logs. Any member can also connect or disconnect repositories, change their engine folders and automatic-run settings, inspect webhook delivery, create or revoke team API tokens, and remove other members.
+Repository connection also requires permission to install or configure the GitHub App for that repository. Organization repositories may need a GitHub organization owner’s approval. Choose “Only select repositories” and grant access to your own copy of the starter.
+You are on one team at a time; to move to another, leave yours first from the team page. API tokens belong to the team that created them. A token’s full value appears only once; ask its creator to share it securely or create a replacement if it was lost.
+Submissions, code, and logs stay private to your team. Ranked team pages show members and best-score history. Leaving a team does not delete its work.
+Submissions
+What to submit
+Submit a folder with engine.py and any source files it imports. engine.py must export class Engine. Dryft names each submission from its repository and team slot, such as fast-qwen #7.
+In the starter repository, only engine/ is submitted. Keep your agent, notes, credentials, and local tools outside that folder.
+engine.py exports a class that owns the whole generation loop over the fixed weights:class Engine:
+      def __init__(self, model_path: str) -> None:
+          """Load the pinned checkpoint from model_path. Untimed, budgeted."""
+
+      def generate(self, input_ids: list[list[int]], max_new_tokens: int):
+          """Yield one list of token ids per step, one id per sequence,
+          exactly max_new_tokens times. Greedy; do not stop at end-of-sequence."""
+Every token must match the baseline’s greedy choice. You may change how the work is done (KV-cache layout, CUDA graphs, fused kernels, prefill, or exact speculative decoding), but not the answer. Quantized or approximate output is not allowed.
+The checkpoint is Qwen/Qwen3-4B-Instruct-2507, revision cdbee75f17c01a7cc42f958dc650907174af0554, with BF16 weights on one NVIDIA H100. The platform provides the weights through model_path; do not download them in your engine.
+The runtime uses Python 3.11, CUDA 12.4, PyTorch 2.5.1, Triton 3.1.0, Transformers 4.51.3, safetensors 0.5.3, and tokenizers 0.21.1. The starter’s requirements.txt is for optional local GPU development. See its engine contract for the complete interface.
+Ship Python or Triton source only. Do not include model weights, credentials, compiled binaries, or your research agent. The sandbox has PyTorch, Triton, and Transformers but no network access.
+Scoring and correctness
+Every run checks output correctness and resource limits. Official runs also enforce latency and timing stability. These are the published values for the Qwen3 4B decode benchmark; sign in to see the live definition.
+The organizer also sets a whole-run time limit, visible on signed-in run pages. A run over that limit is canceled with an explanation. This is separate from the per-sample budget; a changed limit applies to runs already in progress.ScoringRankings use output tokens per second: batch size × output tokens ÷ median generation seconds, including prefill. The leaderboard takes the geometric mean across the six hidden workloads, with equal weight for each. Higher is faster. Public workloads never rank.Every case must pass
+Correct output on every sample.
+Time to first token (TTFT) and time per output token (TPOT) ≤ 1.10× the baseline.
+Timing spread ≤ 25% across the five official samples.
+Peak memory ≤ 90% of the GPU.Output ruleEvery generated token must be the baseline’s greedy choice at that position, or within 2 logits of it. The check replays your own output through the baseline, so a near tie never cascades; a single failing position fails the workload.What you submitAn engine that owns the decode loop over the fixed weights. Anything that keeps the output exact is allowed: KV-cache layout, CUDA graphs, fused kernels, chunked prefill, speculative decoding with exact verification. Quantization and approximations are not.TimingEngine load and warmup are untimed but budgeted: 300 s to load and warm up, 300 s per sample. The clock runs outside your process; TPS includes prefill and every decode step. Official runs start a fresh engine per workload and can take tens of minutes, plus queue time. Leaving this page does not cancel a run.Public workloads · fixed batches, not request concurrency
+WorkloadBatchInput / requestOutput / request
+Generation public-01512 tokens32 tokens
+Generation public-142,048 tokens32 tokens
+Generation public-216512 tokens128 tokens
+Results and leaderboard
+The leaderboard ranks by measured output tokens per second, highest first. Each workload’s rate is batch size × output tokens ÷ median generation seconds, including prefill. The official value is the geometric mean across six hidden workloads: 100, 200, 400, 100, 200, and 400 tok/s produce 200 tok/s. Native timing does not set this value; it is used for latency gates. TTFT means time to first token; TPOT means time per output token.
+Official runs
+The only kind, and they count. You are asked to confirm before one starts. The sample cases and the hidden workloads are both measured, five samples each, and the hidden ones determine your tokens per second. A run must pass the output rule, latency, memory, and timing-stability checks to rank. Higher measured throughput is faster. Runs from before public runs were retired stay in your history marked Retired.
+Your team’s best
+The Leaderboard refreshes every 10 seconds and keeps your best eligible result. A slower run stays in history without replacing your best. When the benchmark’s rules change, earlier results are invalidated and every team runs again.
+Team pages
+Select a team on the leaderboard to see its members and every result that raised its best tokens per second. A team’s page is visible to everyone while it holds a place on the board; runs, submissions and code stay private to the team.Run stuck, failed, or not on the board?
+Queued runs need an available GPU runner. Official runs start a fresh engine per workload and can take tens of minutes after they start. Leaving the page does not cancel a run. Follow the logs; submitting again creates more work.
+For failures, open Logs & errors on the submission before retrying. Search saved output, filter by source or severity, and jump to the failure details. Official runs show platform logs and safe error messages; engine stdout, stderr, and raw stack traces are withheld because they can expose hidden cases.
+For a missing result, check the ranking reason on the run. A successful run alone does not guarantee a ranked result.
+Advanced
+Use the CLI
+The starter installs the right CLI for macOS, Linux, or Windows and checks the download before installing it. You do not need Python or access to the platform source../install-dryft.sh                 # macOS or Linux
+  # .\install-dryft.ps1              # Windows PowerShell
+
+  export DRYFT_TOKEN="dryft_pat_REPLACE_ME"
+  ./bin/dryft doctor
+Create a token under API tokens. Keep it out of git and your submission. The CLI already knows the event server.
+On Windows PowerShell, use:.\install-dryft.ps1
+  $env:DRYFT_TOKEN = "dryft_pat_REPLACE_ME"
+  .\bin\dryft.exe doctor
+  .\bin\dryft.exe validate engine
+  git add engine
+  git commit -m "Update engine"
+  git push origin HEAD
+Published CLI binaries support macOS Intel and Apple Silicon, Linux x86_64, and Windows x86_64. Users on other platforms can submit by pushing to GitHub and follow runs on the website. The optional Python loop in the starter’s agent/ folder uses the standard library and documents its own setup.
+On macOS or Linux, validate your engine and push it to your connected repository’s default branch:./bin/dryft validate engine
+  git add engine
+  git commit -m "Update engine"
+  git push origin HEAD
+To rerun an existing submission, copy the Submission ID from the submission’s Details panel. Copy the Run ID beside its run heading for log, result, and cancel commands. The number in a title such as “Submission #7” is not an API ID.
+GitHub pushes create submissions and start a run. Use ./bin/dryft run SUBMISSION_ID --wait 3000 to rerun an existing submission. ./bin/dryft validate applies the server’s own archive checks on your computer, so an engine that cannot run is caught before you push; the run happens on Dryft.More CLI commands./bin/dryft submissions
+  ./bin/dryft runs
+  ./bin/dryft logs RUN_ID --follow
+  ./bin/dryft result RUN_ID --wait --timeout 3000
+  ./bin/dryft rank RUN_ID
+  ./bin/dryft cancel RUN_ID --reason "superseded"
+  ./bin/dryft --help
+submissions and runs show the latest 25 items. Every run is ranked, so there is nothing to choose.
+If a run request loses its connection, retry with the printed --idempotency-key KEY. This prevents a duplicate GPU job. A wait timeout does not cancel the run.
+Run on push
+In Repositories, connect your GitHub repository and set the engine folder to the folder containing engine.py, usually engine. Give the GitHub App access only to that repository.
+Connecting alone does not run the existing commit. Push a new commit to the default branch for the first run. Pushes to other branches do not submit. Every push to the default branch starts an official run; turn Auto-run on push off if you would rather submit on push and start runs by hand.
+Use the HTTP API
+The API is on the same origin as this website. Send Authorization: Bearer YOUR_TOKEN with a team API token. The token selects its team. New submissions come from connected GitHub repositories.
+Each endpoint below opens to the same request in curl, Python, and Node. They read your token from DRYFT_TOKEN, and the Python one uses requests.
+GET /api/v1/challenges
+Read the benchmark and its public workloads.Examples
+curlcurl -s "https://htn.dryft.ai/api/v1/challenges" \
+  -H "Authorization: Bearer $DRYFT_TOKEN"
+Pythonimport os
+
+
+import requests
+
+response = requests.get(
+    "https://htn.dryft.ai/api/v1/challenges",
+    headers={
+        "Authorization": f"Bearer {os.environ['DRYFT_TOKEN']}",
+
+    },
+
+    timeout=30,
+)
+response.raise_for_status()
+print(response.json())
+Node
+
+const response = await fetch("https://htn.dryft.ai/api/v1/challenges", {
+  headers: {
+    Authorization: `Bearer ${process.env.DRYFT_TOKEN}`,
+
+
+  },
+
+});
+if (!response.ok) throw new Error(await response.text());
+console.log(await response.json());
+GET /api/v1/submissions
+List submissions.Examples
+curlcurl -s "https://htn.dryft.ai/api/v1/submissions" \
+  -H "Authorization: Bearer $DRYFT_TOKEN"
+Pythonimport os
+
+
+import requests
+
+response = requests.get(
+    "https://htn.dryft.ai/api/v1/submissions",
+    headers={
+        "Authorization": f"Bearer {os.environ['DRYFT_TOKEN']}",
+
+    },
+
+    timeout=30,
+)
+response.raise_for_status()
+print(response.json())
+Node
+
+const response = await fetch("https://htn.dryft.ai/api/v1/submissions", {
+  headers: {
+    Authorization: `Bearer ${process.env.DRYFT_TOKEN}`,
+
+
+  },
+
+});
+if (!response.ok) throw new Error(await response.text());
+console.log(await response.json());
+POST /api/v1/submissions/SUBMISSION_ID/runs
+Start a run. Send JSON {"mode":"official"} with an Idempotency-Key header. A submission the lint refuses is answered 400 lint_failed, naming the file and line, and no run is created.Examples
+curlcurl -s -X POST "https://htn.dryft.ai/api/v1/submissions/SUBMISSION_ID/runs" \
+  -H "Authorization: Bearer $DRYFT_TOKEN" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"official"}'
+Pythonimport os
+import uuid
+
+import requests
+
+response = requests.post(
+    "https://htn.dryft.ai/api/v1/submissions/SUBMISSION_ID/runs",
+    headers={
+        "Authorization": f"Bearer {os.environ['DRYFT_TOKEN']}",
+        "Idempotency-Key": str(uuid.uuid4()),
+    },
+    json={"mode":"official"},
+    timeout=30,
+)
+response.raise_for_status()
+print(response.json())
+Nodeimport { randomUUID } from "node:crypto";
+
+const response = await fetch("https://htn.dryft.ai/api/v1/submissions/SUBMISSION_ID/runs", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.DRYFT_TOKEN}`,
+    "Idempotency-Key": randomUUID(),
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({"mode":"official"}),
+});
+if (!response.ok) throw new Error(await response.text());
+console.log(await response.json());
+GET /api/v1/runs/RUN_ID
+Read progress and results.Examples
+curlcurl -s "https://htn.dryft.ai/api/v1/runs/RUN_ID" \
+  -H "Authorization: Bearer $DRYFT_TOKEN"
+Pythonimport os
+
+
+import requests
+
+response = requests.get(
+    "https://htn.dryft.ai/api/v1/runs/RUN_ID",
+    headers={
+        "Authorization": f"Bearer {os.environ['DRYFT_TOKEN']}",
+
+    },
+
+    timeout=30,
+)
+response.raise_for_status()
+print(response.json())
+Node
+
+const response = await fetch("https://htn.dryft.ai/api/v1/runs/RUN_ID", {
+  headers: {
+    Authorization: `Bearer ${process.env.DRYFT_TOKEN}`,
+
+
+  },
+
+});
+if (!response.ok) throw new Error(await response.text());
+console.log(await response.json());
+GET /api/v1/runs/RUN_ID/logs?after=-1&limit=200
+Read logs.Examples
+curlcurl -s "https://htn.dryft.ai/api/v1/runs/RUN_ID/logs?after=-1&limit=200" \
+  -H "Authorization: Bearer $DRYFT_TOKEN"
+Pythonimport os
+
+
+import requests
+
+response = requests.get(
+    "https://htn.dryft.ai/api/v1/runs/RUN_ID/logs?after=-1&limit=200",
+    headers={
+        "Authorization": f"Bearer {os.environ['DRYFT_TOKEN']}",
+
+    },
+
+    timeout=30,
+)
+response.raise_for_status()
+print(response.json())
+Node
+
+const response = await fetch("https://htn.dryft.ai/api/v1/runs/RUN_ID/logs?after=-1&limit=200", {
+  headers: {
+    Authorization: `Bearer ${process.env.DRYFT_TOKEN}`,
+
+
+  },
+
+});
+if (!response.ok) throw new Error(await response.text());
+console.log(await response.json());
+POST /api/v1/runs/RUN_ID/cancel
+Cancel a run. Send JSON {}.Examples
+curlcurl -s -X POST "https://htn.dryft.ai/api/v1/runs/RUN_ID/cancel" \
+  -H "Authorization: Bearer $DRYFT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+Pythonimport os
+
+
+import requests
+
+response = requests.post(
+    "https://htn.dryft.ai/api/v1/runs/RUN_ID/cancel",
+    headers={
+        "Authorization": f"Bearer {os.environ['DRYFT_TOKEN']}",
+
+    },
+    json={},
+    timeout=30,
+)
+response.raise_for_status()
+print(response.json())
+Node
+
+const response = await fetch("https://htn.dryft.ai/api/v1/runs/RUN_ID/cancel", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${process.env.DRYFT_TOKEN}`,
+
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({}),
+});
+if (!response.ok) throw new Error(await response.text());
+console.log(await response.json());
+Use a new idempotency key for each intended run and reuse it when retrying an uncertain request. The submission list contains each submission’s id; run creation and inspection contain run.id. Logs return items, nextAfter, and complete; pass nextAfter as the next after.
+Troubleshooting
+Nothing below matching what you see? Ask the organizers in the event Slack channel.Ask on Slack
+My repository is missing
+Open Connect a repository, choose the repository on GitHub, and then refresh the list. Check that the GitHub App has access to the correct account or organization. If the App is unavailable, ask the organizers on Slack.
+My push did nothing
+Confirm the default branch, engine folder, and Auto-run on push setting in Repositories. Use Check delivery to see whether GitHub reached us. After correcting the settings, push a new commit to the default branch.
+Submissions or evaluations are closed
+The organizer controls availability separately from the displayed round clock. You can prepare code and read existing results while closed. Teams are created and joined only while submissions are open. Check the announcement for reopening; a countdown alone does not enable submissions.
+The CLI refuses my token
+Check that DRYFT_TOKEN is set in the same terminal, the token was copied fully, and its creator is still a member of the team. A revoked or expired token needs a replacement from the API tokens page. Run dryft doctor to check connectivity. Do not put a token in git, an engine archive, or a bug report.
+I need help with a failed run
+Open its logs and sample results. For incorrect_output, candidate_error, timeout, latency_limit, memory_limit, or unstable_timing, check the engine and benchmark limits. For infra_error or harness_error, retry once; if it persists, ask the organizers on Slack with the submission link, full Run ID, error message, and time. Cancel unwanted queued or active work with Cancel run.
+Glossary
+The words this guide, the run pages, and the engine contract use, in plain terms.
+Batch size
+How many sequences the engine generates at the same time. Larger batches do more work per step, so they usually reach a higher rate.
+BF16
+The 16-bit number format the weights are stored in. Your engine keeps it: making the numbers smaller to go faster is quantization, and it changes the answer.
+Checkpoint and revision
+The exact copy of the model’s weights everyone runs. The revision is the commit hash that pins it, so a result means the same thing from one team to the next.
+CUDA graph
+A sequence of GPU operations recorded once and replayed as a unit, so each step spends less time being launched from Python.
+Decode
+Generating output tokens one step at a time, each step reading everything written so far. This is the part of the model this benchmark is about.
+Engine
+What you submit: the Engine class in engine.py that loads the checkpoint and owns the whole generation loop.
+Geometric mean
+The average used to combine the six hidden workloads: multiply their rates and take the sixth root. 100, 200, 400, 100, 200, and 400 tok/s give 200 tok/s.
+Greedy decoding
+Always choosing the single highest-scoring next token, never sampling. It makes the output reproducible, which is what lets the platform check your engine token for token.
+H100
+The NVIDIA data-center GPU every measured run happens on. One GPU per run.
+Idempotency key
+A value you send with a run request so that retrying it after a lost connection continues the same run instead of starting a second GPU job.
+Kernel
+A function that runs on the GPU. Replacing several small kernels with one fused kernel is a common way to cut overhead.
+KV cache
+The keys and values the model keeps for every token it has already read, so each new step works on one token instead of the whole sequence again. How you lay it out is yours to change.
+Prefill
+Reading the prompt and filling the KV cache before the first new token. It is counted in the measured time.
+Sandbox
+The isolated container your engine runs in. It has PyTorch, Triton, and Transformers, and no network access.
+Speculative decoding
+Letting something cheap propose several tokens and having the real model check them in one pass. Allowed only when it is exact, meaning the output matches greedy decoding every time.
+Throughput
+Output tokens per second: batch size × output tokens ÷ median generation seconds. This is what the leaderboard ranks, highest first.
+Token
+The unit of text a model reads and writes, roughly a short word or a piece of one. Tokens in are the prompt; tokens out are what your engine generates.
+Triton
+A Python language for writing GPU kernels without writing CUDA C++. Triton source is allowed in a submission; compiled binaries are not.
+TTFT and TPOT
+Time to first token, and time per output token after it. They are latency gates, not the score.
+Workload
+One test case: a batch size, a prompt length, and a number of output tokens. Public workloads are listed in this guide; the hidden ones decide your place on the board.
