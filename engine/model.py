@@ -349,8 +349,8 @@ class VerifyPlan:
             # selector inside decode_matmuls, has completed before optional N32.
             from kernels.m64_gateup_n32_selection import select_m64_gateup_n32
             self.mm = select_m64_gateup_n32(self.mm, m, log)
-            from kernels.m64_qkv_n32_selection import select_m64_qkv_n32
-            self.mm = select_m64_qkv_n32(self.mm, m, log)
+            from kernels.m64_down_s4_selection import select_m64_down_s4
+            self.mm = select_m64_down_s4(self.mm, m, log)
 
     @torch.inference_mode()
     def verify(self) -> torch.Tensor:
