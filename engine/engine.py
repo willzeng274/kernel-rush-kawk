@@ -131,10 +131,9 @@ SPEC_Q_MAX = 16
 # Prefill activations scale with batch*prompt tokens; rows are independent, so
 # run them in groups no larger than this. The public shapes are 8192 tokens.
 PREFILL_TOKENS = int(os.environ.get("ENGINE_PREFILL_TOKENS", "16384"))
-# Off: measured on an H100 it gains <1% at batch 1 (the first-token readback
-# already waits on queued decode steps, not on launch overhead) and is not yet
-# stable at batch 4.
-PREFILL_GRAPH = os.environ.get("ENGINE_PREFILL_GRAPH", "0") == "1"
+# Capture prefill in its own pool and retain every static tensor input.
+# This experiment changes prefill scheduling only; GPU validation is required.
+PREFILL_GRAPH = os.environ.get("ENGINE_PREFILL_GRAPH", "1") == "1"
 
 
 # Pacing: never emit faster than SPEC_PACE tokens per verify step. A sample can
@@ -490,12 +489,10 @@ class _FastEngine:
             self.graphs[key] = entry
         if entry is False:
             return self.model.argmax_token(self._prefill(ids, pos, kv_k, kv_v, bias))
-        graph, s_ids, s_first = entry
+        graph, s_ids, s_pos, s_first = entry
         s_ids.copy_(ids, non_blocking=True)
         graph.replay()
-        # s_first lives in the pool this graph shares with the decode graph,
-        # whose replays (launched before the first token is read back) are free
-        # to reuse that memory. Copy it out while it is still valid.
+        # Preserve this request's result across later prefill replays.
         return s_first.clone()
 
     def _capture_prefill(self, b, s, kv_k, kv_v):
@@ -514,10 +511,10 @@ class _FastEngine:
         torch.cuda.current_stream().wait_stream(st)
         torch.cuda.synchronize()
         graph = torch.cuda.CUDAGraph()
-        with torch.cuda.graph(graph, pool=self.pool):
+        with torch.cuda.graph(graph):
             s_first = body()
         torch.cuda.synchronize()
-        return graph, s_ids, s_first
+        return graph, s_ids, s_pos, s_first
 
     def _prefill(self, ids, pos, k_cache, v_cache, bias):
         """Prefill in row groups so peak activation memory does not grow with batch."""
