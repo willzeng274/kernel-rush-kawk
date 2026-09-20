@@ -1,0 +1,15 @@
+{
+  "upstream_commit": "7f18415792ec731a1b86518a745dd9bc36ef80bb",
+  "upstream_file": "engine/ek_kernels.py",
+  "upstream_file_sha256": "975d8a85312bc6b4aea74b7ee2599a7e9502449b4817225fe894804451ddda2a",
+  "upstream_nested_function_sha256": "c9c836682542c82d2819bf619472bd0423c8d8f2626773d249d33584be8dd731",
+  "dedented_function_sha256": "4c5f9a6feb5b97079f79431132b3ff5fa03678f9293393a194b7e2e062f4dc12",
+  "compiler_module_sha256": "ecc3eb72094cebab70403f3b8e22a9dae5021ef233a2b6b4660f38f4173cbadf",
+  "function": "_attn_prefill_kernel",
+  "start_line": 166,
+  "end_line": 221,
+  "extraction": "Exact line slice including decorator, textwrap.dedent only; no AST rewriting",
+  "cuda_execution": false,
+  "staged_candidate_kernel_path": "work/candidates/public_triton_prefill/engine/ek_kernels.py",
+  "staged_candidate_function_matches_upstream": true
+}
