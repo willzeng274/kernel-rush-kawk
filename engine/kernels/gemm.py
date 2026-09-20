@@ -400,13 +400,18 @@ def _time(fn, iters: int = 30, rotate: list | None = None) -> float:
             call(i)
     graph.replay()
     torch.cuda.synchronize()
-    start, end = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
-    start.record()
-    for _ in range(3):
+    # Median of several timed replays: a single mean is easily skewed by a clock
+    # or scheduling hiccup, and a mis-picked kernel costs a whole run.
+    samples = []
+    for _ in range(5):
+        start, end = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
+        start.record()
         graph.replay()
-    end.record()
-    torch.cuda.synchronize()
-    return start.elapsed_time(end) / (3 * iters)
+        end.record()
+        torch.cuda.synchronize()
+        samples.append(start.elapsed_time(end) / iters)
+    samples.sort()
+    return samples[len(samples) // 2]
 
 
 def pick_matmul(a: torch.Tensor, w: torch.Tensor, log=None, ws: list | None = None):
