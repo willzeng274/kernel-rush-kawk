@@ -21,6 +21,30 @@ import budget
 
 
 @triton.jit
+def _tree_tile(q, k_ptr, v_ptr, kv_base, n0, end, pos, L, tree, m, l, acc, scale,
+               D: tl.constexpr, BLOCK_N: tl.constexpr, MASK_TREE: tl.constexpr):
+    """One unchanged attention recurrence; the tree mask is compile-time optional."""
+    d = tl.arange(0, D)
+    n = n0 + tl.arange(0, BLOCK_N)
+    kmask = n < end
+    k = tl.load(k_ptr + (kv_base + n[:, None]) * D + d[None, :], mask=kmask[:, None], other=0.0)
+    sc = tl.dot(q, tl.trans(k)) * scale
+    if MASK_TREE:
+        rel = n[None, :] - pos
+        sh = tl.minimum(tl.maximum(rel, 0), 63).to(tl.int64)
+        allowed = (rel < 0) | (((tree[:, None] >> sh) & 1) == 1)
+        sc = tl.where(allowed & (n[None, :] < L), sc, float("-inf"))
+    m_new = tl.maximum(m, tl.max(sc, axis=1))
+    m_safe = tl.where(m_new == float("-inf"), 0.0, m_new)
+    alpha = tl.exp(m - m_safe)
+    p = tl.exp(sc - m_safe[:, None])
+    l = l * alpha + tl.sum(p, axis=1)
+    v = tl.load(v_ptr + (kv_base + n[:, None]) * D + d[None, :], mask=kmask[:, None], other=0.0)
+    acc = acc * alpha[:, None] + tl.dot(p.to(tl.bfloat16), v)
+    return m_new, l, acc
+
+
+@triton.jit
 def _split_kernel(
     q_ptr, k_ptr, v_ptr, pos_ptr, tree_ptr, o_part_ptr, m_part_ptr, l_part_ptr, o_ptr,
     CAP, scale, NSPLIT, SPLIT_LEN,
@@ -61,26 +85,38 @@ def _split_kernel(
     m = tl.full([GP], float("-inf"), tl.float32)
     l = tl.zeros([GP], tl.float32)
     acc = tl.zeros([GP, D], tl.float32)
-    for n0 in range(start, end, BLOCK_N):
-        n = n0 + tl.arange(0, BLOCK_N)
-        kmask = n < end
-        k = tl.load(k_ptr + (kv_base + n[:, None]) * D + d[None, :], mask=kmask[:, None], other=0.0)
-        sc = tl.dot(q, tl.trans(k)) * scale
-        if TREE:
-            rel = n[None, :] - pos
-            sh = tl.minimum(tl.maximum(rel, 0), 63).to(tl.int64)
-            allowed = (rel < 0) | (((tree[:, None] >> sh) & 1) == 1)
-            sc = tl.where(allowed & (n[None, :] < L), sc, float("-inf"))
-        else:
-            sc = tl.where(n[None, :] <= row_limit[:, None], sc, float("-inf"))
-        m_new = tl.maximum(m, tl.max(sc, axis=1))
-        m_safe = tl.where(m_new == float("-inf"), 0.0, m_new)
-        alpha = tl.exp(m - m_safe)
-        p = tl.exp(sc - m_safe[:, None])
-        l = l * alpha + tl.sum(p, axis=1)
-        v = tl.load(v_ptr + (kv_base + n[:, None]) * D + d[None, :], mask=kmask[:, None], other=0.0)
-        acc = acc * alpha[:, None] + tl.dot(p.to(tl.bfloat16), v)
-        m = m_new
+    if TREE and not FINAL:
+        # Keep each loop straight-line so the compiler can pipeline its K/V
+        # loads. Both bounds retain the original BLOCK_N-aligned tile order.
+        prefix_end = tl.minimum(end, (pos // BLOCK_N) * BLOCK_N)
+        for n0 in range(start, prefix_end, BLOCK_N):
+            m, l, acc = _tree_tile(q, k_ptr, v_ptr, kv_base, n0, end, pos, L, tree, m, l, acc, scale,
+                                    D, BLOCK_N, MASK_TREE=False)
+        tail_start = tl.maximum(start, prefix_end)
+        for n0 in range(tail_start, end, BLOCK_N):
+            m, l, acc = _tree_tile(q, k_ptr, v_ptr, kv_base, n0, end, pos, L, tree, m, l, acc, scale,
+                                    D, BLOCK_N, MASK_TREE=True)
+    else:
+        for n0 in range(start, end, BLOCK_N):
+            n = n0 + tl.arange(0, BLOCK_N)
+            kmask = n < end
+            k = tl.load(k_ptr + (kv_base + n[:, None]) * D + d[None, :], mask=kmask[:, None], other=0.0)
+            sc = tl.dot(q, tl.trans(k)) * scale
+            if TREE:
+                rel = n[None, :] - pos
+                sh = tl.minimum(tl.maximum(rel, 0), 63).to(tl.int64)
+                allowed = (rel < 0) | (((tree[:, None] >> sh) & 1) == 1)
+                sc = tl.where(allowed & (n[None, :] < L), sc, float("-inf"))
+            else:
+                sc = tl.where(n[None, :] <= row_limit[:, None], sc, float("-inf"))
+            m_new = tl.maximum(m, tl.max(sc, axis=1))
+            m_safe = tl.where(m_new == float("-inf"), 0.0, m_new)
+            alpha = tl.exp(m - m_safe)
+            p = tl.exp(sc - m_safe[:, None])
+            l = l * alpha + tl.sum(p, axis=1)
+            v = tl.load(v_ptr + (kv_base + n[:, None]) * D + d[None, :], mask=kmask[:, None], other=0.0)
+            acc = acc * alpha[:, None] + tl.dot(p.to(tl.bfloat16), v)
+            m = m_new
 
     if FINAL:
         out = acc / l[:, None]
