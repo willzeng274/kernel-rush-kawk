@@ -102,9 +102,11 @@ class Recycler:
     """Adjacency table plus the buffers the draft/verify graphs touch."""
 
     def __init__(self, vocab: int, B: int, R: int, k: int, device):
-        self.B, self.R, self.k = B, R, k
+        self.B, self.R = B, R
         self.template = TreeTemplate.build(R, k)
-        self.table = torch.full((vocab, k), -1, dtype=torch.int32, device=device)
+        # Preserve the complete original tree, then retain only ranks it reads.
+        self.k = max(self.template.rank) + 1
+        self.table = torch.full((vocab, self.k), -1, dtype=torch.int32, device=device)
         self.parent = torch.tensor(self.template.parent, dtype=torch.int32, device=device)
         self.rank = torch.tensor(self.template.rank, dtype=torch.int32, device=device)
         self.masks = torch.tensor(self.template.masks, dtype=torch.int64, device=device)
@@ -119,9 +121,16 @@ class Recycler:
         self.spine_slot = torch.tensor(slot, dtype=torch.int32, device=device)
         self.spine = torch.full((B, self.S), -1, dtype=torch.int64, device=device)
 
-    def update(self, tokens: torch.Tensor, logits: torch.Tensor) -> None:
-        """Record the top-k next tokens predicted after each of ``tokens`` ([N] int64, logits [N, V])."""
-        top = torch.topk(logits, self.k, dim=-1).indices.to(torch.int32)
+    def update(self, tokens: torch.Tensor, logits: torch.Tensor, greedy: torch.Tensor | None = None) -> None:
+        """Record only successor ranks consumed by the unchanged draft tree."""
+        if self.k == 1:
+            # A rank-zero-only tree needs the exact greedy successor. Verification
+            # already computes it; prefill seeding computes it here when needed.
+            if greedy is None:
+                greedy = logits.argmax(dim=-1)
+            top = greedy.reshape(-1, 1).to(torch.int32)
+        else:
+            top = torch.topk(logits, self.k, dim=-1).indices.to(torch.int32)
         self.table.index_copy_(0, tokens, top)
 
     def draft(self) -> None:

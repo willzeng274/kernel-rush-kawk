@@ -369,6 +369,7 @@ class VerifyPlan:
         attention = (lambda q, k, v, pos, out: self.attention(q, k, v, pos, out, self.masks)) if self.tree else self.attention
         depth = self.recycler.depth if self.recycler is not None else None
         logits = run_layers(plan, self.mm, x, self.q, self.attn_out, attention, self.pos, R, plan.rope_fused, depth=depth)
+        greedy = logits.argmax(dim=-1)
         if self.recycler is not None:
-            self.recycler.update(self.blk.view(-1), logits)
-        return logits.argmax(dim=-1).view(B, R)
+            self.recycler.update(self.blk.view(-1), logits, greedy=greedy)
+        return greedy.view(B, R)

@@ -1,4 +1,4 @@
-# Unchanged Krxfty public baseline
+# Krxfty public baseline and rank-budget derivative
 
 Source repository: https://github.com/IshaanBansal2006/starter
 
@@ -26,3 +26,7 @@ Known risks, including the original-prompt fallback splice fixed later in
 `c0d8851`, are intentionally retained. See
 `work/research/krxfty_public_baseline/REPORT.md` for the bounded source audit.
 No downloaded code was executed locally. This commit prepares the first official unchanged comparison against retained #75 (1013.8 tok/s).
+
+## Current derivative
+
+The complete unchanged14-file baseline passed as official#76 at1109.4 tok/s, rank8, in8m44.4s–9m44.4s including queue. This revision changes only model.py and recycle.py: build the identical original tree, retain only ranks it reads, and reuse the authoritative full-vocabulary argmax for rank-zero-only proposal tables. All other12 files match the verified baseline. Tied proposals can differ; exact full-model verification remains authoritative. No geometry, numerical kernel, controller or fallback change is included. Source review,56 CPU integration cases, archive parity and official structural validation passed; new GPU performance is unmeasured.
