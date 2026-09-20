@@ -1,0 +1,16 @@
+--- a/engine/kernels/down_s4.py
++++ b/engine/kernels/down_s4.py
+@@ -18,8 +18,11 @@
+     BLOCK_M: tl.constexpr, BLOCK_N: tl.constexpr, BLOCK_K: tl.constexpr,
+     SPLIT_K: tl.constexpr, K_PER_SPLIT: tl.constexpr,
+ ):
+-    tl.static_assert(BLOCK_M == 64 and BLOCK_N == 64 and BLOCK_K == 64)
+-    tl.static_assert(SPLIT_K == 4 and K_PER_SPLIT == 2432)
++    tl.static_assert(BLOCK_M == 64)
++    tl.static_assert(BLOCK_N == 64)
++    tl.static_assert(BLOCK_K == 64)
++    tl.static_assert(SPLIT_K == 4)
++    tl.static_assert(K_PER_SPLIT == 2432)
+     tile = tl.program_id(0)
+     split = tile % SPLIT_K
+     rm = tl.arange(0, BLOCK_M)

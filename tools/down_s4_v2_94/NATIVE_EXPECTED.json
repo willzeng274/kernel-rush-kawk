@@ -1,0 +1,342 @@
+{
+  "method": "Execute exact frozen DownS4Matmul class against CPU tensor/launch stand-ins, then pinned Triton 3.1 create_binder/binder/_get_config and CUDAOptions/parse_options from primary AST. No compiler/Torch/GPU import. Native driver must match every launch field before any build.",
+  "jit_source_sha256": "7542bf9254646331ed90ce16fe1bfb2caf87d77d748d84396aab44c8027d508b",
+  "backend_source_sha256": "a979896b9c0acfd41dd953b90bdc4b10968f7c0b45a286eae3f829aaddb2bb55",
+  "kernel_source_sha256": "da9d50d17b016ce5c2f8b1015c030a5664a8b3461d694dd115affb88d0f98cc5",
+  "wrapper_source_sha256": "4319be41e779f9d714de66e8d5e27d18039c9f54419b5c638ceab6ba2c1d87bc",
+  "launches": [
+    {
+      "case": "down_m64_n64_k64_split4_w4_s3",
+      "kernel": "_down_s4_kernel",
+      "grid": [
+        160
+      ],
+      "native_key_sha256": "4a0785f81b36ae1a891dc93f37b30924c80c519ebf01cc66d6f62a8254b08195",
+      "jit_cache_key_sha256": "ebfdad43497bb410313dc82aae2b0849a19bf7392f5e3c7714f3db2cf6d842db",
+      "jit_cache_key": "*bf16*bf16*fp32i32i32DDDDD((64, 64, 64, 4, 2432), {'num_warps': 4, 'num_stages': 3, 'num_ctas': 1, 'enable_fp_fusion': True, 'debug': None})",
+      "bound_arguments": {
+        "a_ptr": {
+          "shape": [
+            64,
+            9728
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "w_ptr": {
+          "shape": [
+            2560,
+            9728
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "part_ptr": {
+          "shape": [
+            4,
+            64,
+            2560
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "stride_am": 9728,
+        "stride_wn": 9728,
+        "BLOCK_M": 64,
+        "BLOCK_N": 64,
+        "BLOCK_K": 64,
+        "SPLIT_K": 4,
+        "K_PER_SPLIT": 2432
+      },
+      "signature_specialization": [
+        "*bf16",
+        "*bf16",
+        "*fp32",
+        "i32",
+        "i32",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D"
+      ],
+      "constexpr_values": [
+        64,
+        64,
+        64,
+        4,
+        2432
+      ],
+      "signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "part_ptr": "*fp32",
+        "stride_am": "i32",
+        "stride_wn": "i32"
+      },
+      "constants": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 64,
+        "BLOCK_K": 64,
+        "SPLIT_K": 4,
+        "K_PER_SPLIT": 2432
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          9
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 4,
+        "num_stages": 3,
+        "num_ctas": 1,
+        "enable_fp_fusion": true,
+        "debug": null
+      },
+      "parsed_options": {
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 3,
+        "maxnreg": null,
+        "cluster_dims": [
+          1,
+          1,
+          1
+        ],
+        "ptx_version": null,
+        "enable_fp_fusion": true,
+        "allow_fp8e4nv": true,
+        "allow_fp8e4b15": false,
+        "default_dot_input_precision": "tf32",
+        "allowed_dot_input_precisions": [
+          "tf32",
+          "tf32x3",
+          "ieee"
+        ],
+        "max_num_imprecise_acc_default": 1073741824,
+        "extern_libs": [
+          [
+            "libdevice",
+            "<TRITON_LIBDEVICE>"
+          ]
+        ],
+        "debug": null,
+        "backend_name": "cuda"
+      }
+    },
+    {
+      "case": "sum_mn163840_split4_block1024",
+      "kernel": "_sum_kernel",
+      "grid": [
+        160
+      ],
+      "native_key_sha256": "dd1191d7cfaa1681f1bd6f8219ffbb075cf7867d5061ec1289f89f41dba866f2",
+      "jit_cache_key_sha256": "2200ab8b0a14626ff4de9efce98736f8ca479f209def86c0c6cf977de19a7b8a",
+      "jit_cache_key": "*fp32*bf16i32DDD((4, 1024), {'num_warps': 4, 'num_stages': 3, 'num_ctas': 1, 'enable_fp_fusion': True, 'debug': None})",
+      "bound_arguments": {
+        "part_ptr": {
+          "shape": [
+            4,
+            64,
+            2560
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "c_ptr": {
+          "shape": [
+            64,
+            2560
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "MN": 163840,
+        "SPLIT_K": 4,
+        "BLOCK": 1024
+      },
+      "signature_specialization": [
+        "*fp32",
+        "*bf16",
+        "i32",
+        "D",
+        "D",
+        "D"
+      ],
+      "constexpr_values": [
+        4,
+        1024
+      ],
+      "signature": {
+        "part_ptr": "*fp32",
+        "c_ptr": "*bf16",
+        "MN": "i32"
+      },
+      "constants": {
+        "SPLIT_K": 4,
+        "BLOCK": 1024
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          4
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 4,
+        "num_stages": 3,
+        "num_ctas": 1,
+        "enable_fp_fusion": true,
+        "debug": null
+      },
+      "parsed_options": {
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 3,
+        "maxnreg": null,
+        "cluster_dims": [
+          1,
+          1,
+          1
+        ],
+        "ptx_version": null,
+        "enable_fp_fusion": true,
+        "allow_fp8e4nv": true,
+        "allow_fp8e4b15": false,
+        "default_dot_input_precision": "tf32",
+        "allowed_dot_input_precisions": [
+          "tf32",
+          "tf32x3",
+          "ieee"
+        ],
+        "max_num_imprecise_acc_default": 1073741824,
+        "extern_libs": [
+          [
+            "libdevice",
+            "<TRITON_LIBDEVICE>"
+          ]
+        ],
+        "debug": null,
+        "backend_name": "cuda"
+      }
+    }
+  ],
+  "wrapper_launch_receipt": [
+    {
+      "case": "down_m64_n64_k64_split4_w4_s3",
+      "kernel": "_down_s4_kernel",
+      "grid": [
+        160
+      ],
+      "args": [
+        {
+          "shape": [
+            64,
+            9728
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            2560,
+            9728
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            4,
+            64,
+            2560
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        9728,
+        9728
+      ],
+      "kwargs": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 64,
+        "BLOCK_K": 64,
+        "SPLIT_K": 4,
+        "K_PER_SPLIT": 2432,
+        "num_warps": 4,
+        "num_stages": 3,
+        "num_ctas": 1,
+        "enable_fp_fusion": true
+      }
+    },
+    {
+      "case": "sum_mn163840_split4_block1024",
+      "kernel": "_sum_kernel",
+      "grid": [
+        160
+      ],
+      "args": [
+        {
+          "shape": [
+            4,
+            64,
+            2560
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            64,
+            2560
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        163840
+      ],
+      "kwargs": {
+        "SPLIT_K": 4,
+        "BLOCK": 1024,
+        "num_warps": 4,
+        "num_stages": 3,
+        "num_ctas": 1,
+        "enable_fp_fusion": true
+      }
+    }
+  ],
+  "compile_calls": 0,
+  "gpu_execution": false
+}

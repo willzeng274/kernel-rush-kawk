@@ -1,0 +1,21 @@
+{
+  "status": "SOURCE_READY_UNCOMPILED",
+  "only_delta": "Two compound tl.static_assert calls split into five single-comparison calls",
+  "nonassertion_device_AST_identical": true,
+  "other22_source_files_byte_identical": true,
+  "delta_applies_with_full_byte_parity": true,
+  "parent_source_and_preparation_manifest_members_unchanged": true,
+  "host_controls_passed": 42,
+  "host_control_runs": 1,
+  "triton_compilation": 0,
+  "CI_runs": 0,
+  "GPU_runs": 0,
+  "official_submissions": 0,
+  "reported_predecessor_failure": {
+    "ci": "35506309022",
+    "compiler_commit": "973e109",
+    "stage": "first producer compile before IR, chained Boolean in static_assert unsupported",
+    "merge_compiled": false
+  },
+  "remaining": "Separate root review and compiler authorization; 38-step pipeline tail bounds/drains remain unproved."
+}
