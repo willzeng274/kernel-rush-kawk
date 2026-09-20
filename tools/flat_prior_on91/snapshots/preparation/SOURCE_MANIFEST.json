@@ -1,0 +1,62 @@
+{
+  "status": "PASS_SOURCE_PREPARED_NOT_COMPILED_NOT_SUBMITTED",
+  "base_revision": 91,
+  "base_commit": "60956a2979216d7791c57b3030534288d13c01df",
+  "base_score": 1231.7,
+  "candidate_files": {
+    "engine/baseline.py": "ce943112630a01e6912fb240a90c20d9096d74789782b3ef327133a5f69abfcb",
+    "engine/budget.py": "b53d94e1aaf19df1c6ea2f25bc7f4974d0298ea2d7197fc532e4f6d917dda4e3",
+    "engine/engine.py": "3969a664a9013688be49acf2b66f453bf9930e0699ee2a9f46dadd4979eb9e8a",
+    "engine/kernels/__init__.py": "34ae2a727bc6d643ece5040af4a9649c1072e4c436717c780bbdad25800f84f8",
+    "engine/kernels/accept.py": "59de9460feb605e49b556f1c4c0afca3e28e6614f582e060d3279bbdc8f188d6",
+    "engine/kernels/add_rmsnorm.py": "8a7943ba2bbdf4224d004e3a83629768d7a2890564dcac721a02becd72524608",
+    "engine/kernels/attention.py": "db331e597132e9e084975e3d9d475b89c8c1aa0d0991b5836381112ba5aec67d",
+    "engine/kernels/compact.py": "c7c1c6ef1d4822958e72c8afc769e4f3ceed836672ce9f4ea375c1366965772c",
+    "engine/kernels/gateup64.py": "399aa701a6de264a840cd8e0f2cbd10f940fc711203c92732c6cb0d6a5e29533",
+    "engine/kernels/gateup_n32.py": "7059cb67f089f9b1654347524347b4f559a91e355e88dfc9023c5048b341fe87",
+    "engine/kernels/gemm.py": "edc91ecbec3a454a0dadcd468c84d49ec94c1133f44e9aad4799b3dcfd1889a3",
+    "engine/kernels/m64_gateup_n32_selection.py": "1d934b029de83ab334256f61bb89190cc40cc831d1d67bf1e1dc3f0d350d86c6",
+    "engine/kernels/m64_gateup_selection.py": "31ee3e1367eee0a4b7e04362fb1864404591dbbf4c48fb5512e07dc410fca361",
+    "engine/kernels/rmsnorm.py": "2b94cc1921159102046b7e27dac718a6b4551d5333ef89622de8cc7e2809949b",
+    "engine/kernels/rope.py": "7461f6b065837da04693e6e591add872e7ac5a005514d7886d188cf7aa183fc0",
+    "engine/kernels/swiglu.py": "b5a0837230f0d1627d3b880f9121e8be69d1b539d315bc82c0d09fc3b156f2ee",
+    "engine/model.py": "de66742f22f79dd664113a028895896ee081f366a57b2a151f5dc4f1b5841cd7",
+    "engine/pair_cache.py": "40a3b1985c25ff768d067e4aea171271d640c9dad46513242a0f8ce1b1ac4030",
+    "engine/prompt_seed.py": "c71fb6f31fb3f10e65bb0470f31acd2545885109fb56b3bd737cbf1fc38db6b4",
+    "engine/recycle.py": "9976ebdfe8cfc055d15cf079e015adf08cb265a2f5becf8d3f5eda5c88e6085e",
+    "engine/spec.py": "2084c5c1c33dd99a03f0da34a7cbb1d88148e6be7fa9a74b3b9b8458f49092b8"
+  },
+  "source_set_sha256": "96d42195c95d8778975023294cdc1fe437de669a98462d7b54653ad1176d1373",
+  "archive_sha256": "938a935b45e990cea918ee24bfd693ecdf54ed475b86190c52ded3af5b22e66f",
+  "archive_bytes": 42982,
+  "archive_path": "work/candidates/krxfty_flat_prior_on91/krxfty_flat_prior_on91.tar.gz",
+  "changed_files": [
+    "engine/recycle.py"
+  ],
+  "byte_identical_files": 20,
+  "sole_ast_difference": "RANK_PRIOR assignment value",
+  "prior_before": [
+    0.55,
+    0.16,
+    0.08,
+    0.05,
+    0.035,
+    0.025,
+    0.02,
+    0.015
+  ],
+  "prior_after": [
+    0.4,
+    0.2,
+    0.12,
+    0.08,
+    0.06,
+    0.05,
+    0.04,
+    0.03
+  ],
+  "base_git_file_parity": 21,
+  "package_check": "Trusted local agent.package.check/package; deterministic two-build equality; complete archive parity",
+  "packager_sha256": "000bc23ac03232bb04fd11768d4f268f7afec83683ebb2f2b9e0f4cbde9e6135",
+  "compile_or_external_actions": 0
+}

@@ -1,0 +1,396 @@
+{
+  "status": "NO_ARCHIVED_EXACT_REUSE_CERTIFIED",
+  "evidence_manifest_sha256": "b7c5f47c3c5be60bbbda3336ed35e53b14fee12fb419182a20027a2e6f2b843b",
+  "verified_prior_artifacts": {
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/draft_r2.audit_events.json": "c8e91d47c8bd707ff5a5c56ae1d72b39806b7564263185e8f07d85d59ea92588",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/draft_r2.compiler.log": "3f2e05719c25bb2c545bc2650e480e3fb76c8d2ce16a03468c75388de1d51bf2",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/draft_r2.config.json": "b6825174a7bb1a1d0cb3177661886eae095c8098705077946f71565c1174ff90",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/draft_r2.cubin": "584a71cf7d818cd18ca269d5d898c4b51e13916c06ff880bd6b47b2877b89d20",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/draft_r2.json": "c721ddc05e01f04e7d70746e1084d47f6d6be6a879ce57efb94d1cbe7fd6f8db",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/draft_r2.llir": "4475aa45606f1b82d53cb92b30bb52e93c22845acc7db8cbcd38cf1d2f4c2c3c",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/draft_r2.ptx": "3503a74a05bd85beafff8f7502eb37d1bb82d7c2841d7c74065f2e0f98977561",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/draft_r2.ptxas.log": "bd87260cfed4887535adf99f0197eb33257bd1dcd6d437f49d582bf7faf4ba09",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/draft_r2.ttgir": "e0001cd7e00be08311558981373205b313d26d8ac1dae4b6bcd477c69ccd09d7",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/draft_r2.ttir": "132f68891748e7e323ec523356bd3a8597381465c46b5e5fcde4e4e0b33a3c47",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/publish_r2.audit_events.json": "c092e2dc12b3692b9b844454cdad257e6b2707fccb7bb3e12b29c123c98bdbd1",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/publish_r2.compiler.log": "b55306bf7c8b9cf7d199ef0a124b83db5eecb5acf2b6fcee1e99755d4cceb588",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/publish_r2.config.json": "763e5d1a9022f9c04fcb7360e536007c0aa5f71f12b6e9878737f993e013b7c9",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/publish_r2.cubin": "5b6c437c8d9eea4cceff4364f70a0de8e39e9fabf39a605b80999a54befd09a2",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/publish_r2.json": "c41a710ca83d20b3f83af8267a6d2d5c124d2334ba958d4488f6968894cd091d",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/publish_r2.llir": "8f36756080236334461fd7639052c4aa64ba9b855ff5d499a8d61f05774ec976",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/publish_r2.ptx": "b52ff280fa40bbcca8fb51e00a6c1b5e32cb6041b54f3b8dd1cc7e86ec5a2177",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/publish_r2.ptxas.log": "483cc3bd8ceb5d1d70c211b5a7763cce9d381b34ad91c3b32b6ce55a1a1d480d",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/publish_r2.ttgir": "665ef8bf0e5f0c29e4993ddd2f646df6a2918abc4bd712fcacb2edb125770d2c",
+    "work/research/krxfty_pair_compile_fresh_83/results_35497788552/publish_r2.ttir": "30fb752d96f405ae259b9b034338e112810ca9717de435eb126a850cc2faea20"
+  },
+  "near_matches": [
+    {
+      "kernel": "_draft_kernel",
+      "R_context": 2,
+      "source_signature_constants_attrs_match": true,
+      "emitted_option_differences": {
+        "debug": {
+          "actual_archived": false,
+          "current_native": null
+        }
+      },
+      "reuse_certified": false,
+      "config_path": "work/research/krxfty_pair_compile_fresh_83/results_35497788552/draft_r2.config.json"
+    },
+    {
+      "kernel": "_publish_pairs_kernel",
+      "R_context": 2,
+      "source_signature_constants_attrs_match": true,
+      "emitted_option_differences": {
+        "debug": {
+          "actual_archived": false,
+          "current_native": null
+        }
+      },
+      "reuse_certified": false,
+      "config_path": "work/research/krxfty_pair_compile_fresh_83/results_35497788552/publish_r2.config.json"
+    }
+  ],
+  "unchanged_production_keys_outside_changed_scope": [
+    {
+      "kernel": "_compact_kernel",
+      "constants": {
+        "MAXA": 4,
+        "D": 128
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          9
+        ],
+        "equal_to_1": []
+      },
+      "batches": [
+        2,
+        3,
+        5
+      ],
+      "complete_compile_key_sha256": "77a95093495847a103888c84fa23259d0334dc8c7235dc453833acfcb6e0284e"
+    },
+    {
+      "kernel": "_compact_kernel",
+      "constants": {
+        "MAXA": 3,
+        "D": 128
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          9
+        ],
+        "equal_to_1": []
+      },
+      "batches": [
+        4,
+        6,
+        7,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "complete_compile_key_sha256": "f1912306f671acdbe5baa1145f0222ca3944b6c68b37c75ef798db4b3c146f3c"
+    },
+    {
+      "kernel": "_compact_kernel",
+      "constants": {
+        "MAXA": 2,
+        "D": 128
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          9
+        ],
+        "equal_to_1": []
+      },
+      "batches": [
+        8,
+        15,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31
+      ],
+      "complete_compile_key_sha256": "304d28131ffe5537052dfa2c179a1d73e3ef732282e85741e60fbe0d501c4ea0"
+    },
+    {
+      "kernel": "_compact_kernel",
+      "constants": {
+        "MAXA": 1,
+        "D": 128
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          9
+        ],
+        "equal_to_1": [
+          8
+        ]
+      },
+      "batches": [
+        33,
+        34,
+        35,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63
+      ],
+      "complete_compile_key_sha256": "7f0b85218bb2396b1b2d451a64056838a7c2e4dbf7c435241e8213c94feca018"
+    },
+    {
+      "kernel": "_draft_kernel",
+      "constants": {
+        "K": 8,
+        "R": 2,
+        "S": 1,
+        "SP": 3
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "equal_to_1": [
+          15
+        ]
+      },
+      "batches": [
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64
+      ],
+      "complete_compile_key_sha256": "b73cb1acfbdf219ef83cbded904aff6197510fd3524c1dce54bb5839ec07e0ea"
+    },
+    {
+      "kernel": "_publish_pairs_kernel",
+      "constants": {
+        "K": 8,
+        "R": 2,
+        "MAXA": 1,
+        "P": 8
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "equal_to_1": [
+          10
+        ]
+      },
+      "batches": [
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64
+      ],
+      "complete_compile_key_sha256": "29ccebfddcf6a83f25da25f8c2b27a394784edd245a8fd6898ecb3534f958c12"
+    },
+    {
+      "kernel": "accept_kernel",
+      "constants": {
+        "R": 2,
+        "C": 1,
+        "P": 4,
+        "MAXA": 1,
+        "GUARD": 4
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "equal_to_1": [
+          18,
+          20
+        ]
+      },
+      "batches": [
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64
+      ],
+      "complete_compile_key_sha256": "a94a227795954ab8170d626a89f032f5b9e06421d77b38a0170cfa156ecc92e5"
+    },
+    {
+      "kernel": "_compact_kernel",
+      "constants": {
+        "MAXA": 1,
+        "D": 128
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          9
+        ],
+        "equal_to_1": [
+          8
+        ]
+      },
+      "batches": [
+        48,
+        64
+      ],
+      "complete_compile_key_sha256": "21553723cebee80c5fe56c05a101a0b88ec1083c4a289110184708f44feb8ab5"
+    }
+  ],
+  "limitation": "Exact91 production source/native launch behavior retained for these eight keys. This is scope control, not an archived compiler-reuse assertion or proof every fallback B executed on GPU."
+}

@@ -1,0 +1,47 @@
+{
+  "_pair_slot": {
+    "file": "pair_cache.py",
+    "lines": [
+      43,
+      47
+    ],
+    "source_sha256": "40a3b1985c25ff768d067e4aea171271d640c9dad46513242a0f8ce1b1ac4030",
+    "decorated_function_sha256": "bf79af8cfa3a92f684e90b95d15388fa859f124f0a38ef33e38e522e2f9b9280"
+  },
+  "_draft_kernel": {
+    "file": "recycle.py",
+    "lines": [
+      88,
+      130
+    ],
+    "source_sha256": "9976ebdfe8cfc055d15cf079e015adf08cb265a2f5becf8d3f5eda5c88e6085e",
+    "decorated_function_sha256": "237b8d3f3ef6e9f5444770b99a1090c40d95d57625e4f0f6f9318827da54bde0"
+  },
+  "_publish_pairs_kernel": {
+    "file": "pair_cache.py",
+    "lines": [
+      50,
+      79
+    ],
+    "source_sha256": "40a3b1985c25ff768d067e4aea171271d640c9dad46513242a0f8ce1b1ac4030",
+    "decorated_function_sha256": "37a6311a0c3ba4908c34f47cf0203f4ccdd0fe5ef210f29c40e2ec4401e429ca"
+  },
+  "accept_kernel": {
+    "file": "kernels/accept.py",
+    "lines": [
+      47,
+      146
+    ],
+    "source_sha256": "59de9460feb605e49b556f1c4c0afca3e28e6614f582e060d3279bbdc8f188d6",
+    "decorated_function_sha256": "94162015215edc4cc23227cf48ed8ec9da999cb9a3b96aaabc318c4abb8ccfb2"
+  },
+  "_compact_kernel": {
+    "file": "kernels/compact.py",
+    "lines": [
+      16,
+      35
+    ],
+    "source_sha256": "c7c1c6ef1d4822958e72c8afc769e4f3ceed836672ce9f4ea375c1366965772c",
+    "decorated_function_sha256": "8cf833b292dfa2bb13aaa855780b8fabe656391a62ebd8f7b9846f3769ba567c"
+  }
+}

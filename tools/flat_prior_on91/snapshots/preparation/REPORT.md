@@ -1,0 +1,16 @@
+Prepared exact #91 plus the single `RANK_PRIOR` change to `[.40,.20,.12,.08,.06,.05,.04,.03]`. The old #82 flat candidate was never compiled or submitted; #86 was sibling-swap. No revision number is assigned here.
+
+All 21 base files match git `60956a2979216d7791c57b3030534288d13c01df`. The candidate differs only in the constant’s AST value; the other 20 files are byte-identical. Trusted local packaging passes, two builds are identical, and every archive member matches the frozen source. Archive: 42,982 bytes.
+
+Source-set SHA256: `96d42195c95d8778975023294cdc1fe437de669a98462d7b54653ad1176d1373`.
+Archive SHA256: `938a935b45e990cea918ee24bfd693ecdf54ed475b86190c52ded3af5b22e66f`.
+
+Targeted CPU checks execute the current host constructor, default `_plan`, `_write_spine`, host acceptance, and AST-extracted draft/accept/publication/compaction functions against bounded stand-ins. They cover every default B=1..64 and all 19 resulting R values; 128 base/candidate allocation plans, 618 root-to-node paths, 1,216 duplicate-prediction cases, 1,216 draft cases, 1,864 spine-offset cases, both pinned slots, and 2,080 heterogeneous acceptance lanes pass. Actual compaction checks include eight KV heads and D128. Signed bit63, strict longest-path gain, clipping/tie retention, frozen sequences, exact-pair collision rejection, unavailable spine tokens, and the maximum one-round SP delay pass. Three fault controls are detected.
+
+The new source fixture contains exact current `_draft_kernel`, `_publish_pairs_kernel`, `accept_kernel`, `_compact_kernel`, and `_pair_slot` dependency. Native keys come from actual wrapper captures and pinned Triton3.1 Python binder/backend-option code, with no compiler import. Each tree’s 256 launches deduplicate to 64 keys. The minimal changed scope is exactly **56**: 18 draft, 18 publication, 18 acceptance, and two compact keys. New compact groups are MAXA5/B1 and MAXA2/B-divisible-by16. The other eight retain exact #91 source and launch behavior and are outside changed scope.
+
+No archived compiler receipt reuse is certified. R2 pair receipts match source/signature/constants/attributes but emit debug=False while the current native default is None. The old #82 draft/accept bodies are obsolete, and its plan omits pair publication. No matching current compact offline receipt was found. Unchanged production keys are not a claim that all fallback shapes were GPU-tested.
+
+Proposed future batch only: 56 fixed sequential cases, one worker, 25 seconds per case, 178-second internal cleanup and 180-second external total limit, stop at first failure, zero retries/sweeps. Root must separately approve a frozen workflow and compare every actual native field before compiling. Current R4 now exercises longest acceptance; future instruction audit must cover draft dependency ordering, publication chronology, accept masks/clipping, and overlapping compaction.
+
+`KEY_DETAILS.json`, `COMPILE_PLAN.json`, `REUSE_REVIEW.json`, `HOST_CHECKS.json`, the exact fixture, and source/package manifests contain the review evidence. CPU checks establish source semantics and bounds only; compiler behavior, GPU correctness, timing spread, and speed remain untested. No compiler checkout, main, CI, GPU, or official action occurred.
