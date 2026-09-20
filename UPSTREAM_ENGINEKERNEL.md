@@ -1,5 +1,5 @@
-# Complete public EngineKernel baseline
+# Complete last-verified public EngineKernel baseline
 
-All four engine files are copied byte-for-byte from https://github.com/jeojdi1/EngineKernel/tree/1ebd607be2336e3854880fcfa699dba799a3d9d2/engine . No algorithms, tuning, defaults, wrappers, or interfaces were modified. Author attribution and source comments are retained. This tests the complete public implementation; the exact commit associated with LegoMan’s1006.7score is not independently confirmed.
+All four engine files are byte-identical to https://github.com/jeojdi1/EngineKernel/tree/51f8ee511c372edcfade2edd71f53cf79a0bf02f/engine . All upstream comments, attribution, defaults, and interfaces are retained.
 
-The next control changes only the default of ENGINE_SPEC from1to0, following a batch-one incorrect-output result for the unchanged baseline. All other source and defaults remain unchanged.
+Author commit 7d7bd106bec8cd730476ce33b354075289614e91 identifies this as the last state verified by the platform. Later commit 54f2e51ea23d7ff33345b2feebaa87b4f69a7ab3 reports batch-one divergence with captured prefill sharing the decode graph pool. Our earlier whole-engine baseline used the newer, subsequently failing 1ebd607 revision. The exact commit associated with LegoMan’s 1006.7 score remains independently unconfirmed.

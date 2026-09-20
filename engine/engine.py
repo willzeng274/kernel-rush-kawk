@@ -125,7 +125,7 @@ TARGET_S_MAX = int(os.environ.get("ENGINE_S_MAX", "8192"))
 # judge does) n-gram drafts give a 48-90% timing spread at batch 1 against a 25%
 # gate. Paced at 1.2 tokens/step (see SPEC_PACE) the measured spread is 2-14%
 # and throughput is +9-13% on long outputs at batch 1-4, +5% at batch 8.
-SPEC = os.environ.get("ENGINE_SPEC", "0") == "1"
+SPEC = os.environ.get("ENGINE_SPEC", "1") == "1"
 SPEC_Q = int(os.environ.get("ENGINE_SPEC_Q", "0"))
 SPEC_Q_MAX = 16
 # Prefill activations scale with batch*prompt tokens; rows are independent, so
@@ -134,11 +134,7 @@ PREFILL_TOKENS = int(os.environ.get("ENGINE_PREFILL_TOKENS", "16384"))
 # Off: measured on an H100 it gains <1% at batch 1 (the first-token readback
 # already waits on queued decode steps, not on launch overhead) and is not yet
 # stable at batch 4.
-# On: the platform runs under gVisor, where every driver call is expensive and
-# cuDNN's attention makes many per invocation; locally the captured prefill is
-# neutral (the host is never the bottleneck there), on the platform the cuDNN
-# prefill gain did not show up until the launches were folded into one replay.
-PREFILL_GRAPH = os.environ.get("ENGINE_PREFILL_GRAPH", "1") == "1"
+PREFILL_GRAPH = os.environ.get("ENGINE_PREFILL_GRAPH", "0") == "1"
 
 
 # Pacing: never emit faster than SPEC_PACE tokens per verify step. A sample can
