@@ -31,10 +31,10 @@ def cooperative_smoke(VALUES, OUT, OBSERVED, ARRIVALS, EPOCH,
             observed = tl.atomic_add(EPOCH, 0, sem="acquire", scope="gpu")
     tl.debug_barrier()
 
-    # Different CTAs consume every producer's writes. Bypass L1 and prevent
-    # hoisting these reads across the synchronization protocol.
+    # Different CTAs consume every producer's writes. Volatile loads prevent
+    # hoisting across synchronization; PTX forbids combining volatile and .cg.
     indices = tl.arange(0, READ_BLOCK)
     data = tl.load(VALUES + indices, mask=indices < total, other=0,
-                   cache_modifier=".cg", volatile=True)
+                   volatile=True)
     tl.store(OUT + pid, tl.sum(data, 0))
     tl.store(OBSERVED + pid, phase + 1)
