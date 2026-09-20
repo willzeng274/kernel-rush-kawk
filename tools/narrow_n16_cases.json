@@ -1,0 +1,1538 @@
+[
+  {
+    "id": "n16_output_b1",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 1,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b1",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 1,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b16",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 16,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b16",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 16,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b32",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 32,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b32",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 32,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b2",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 2,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b2",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 2,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b3",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 3,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b3",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 3,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b4",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 4,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b4",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 4,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b5",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 5,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b5",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 5,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b6",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 6,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b6",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 6,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b7",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 7,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b7",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 7,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b8",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 8,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b8",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 8,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b9",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 9,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b9",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 9,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b10",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 10,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b10",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 10,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b11",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 11,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b11",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 11,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b12",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 12,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b12",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 12,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b13",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 13,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b13",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 13,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b14",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 14,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b14",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 14,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b15",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 15,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b15",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 15,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 16,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b17",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 17,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b17",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 17,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b18",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 18,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b18",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 18,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b19",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 19,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b19",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 19,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b20",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 20,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b20",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 20,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b21",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 21,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b21",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 21,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b22",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 22,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b22",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 22,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b23",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 23,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b23",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 23,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b24",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 24,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b24",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 24,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b25",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 25,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b25",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 25,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b26",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 26,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b26",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 26,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b27",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 27,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b27",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 27,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b28",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 28,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b28",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 28,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b29",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 29,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b29",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 29,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b30",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 30,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b30",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 30,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_output_b31",
+    "family": "output",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 31,
+      "CHANNELS": 2560,
+      "INNER": 4096,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  },
+  {
+    "id": "n16_down_b31",
+    "family": "down",
+    "function": "narrow_projection",
+    "signature": {
+      "X": "*bf16",
+      "WEIGHT": "*bf16",
+      "RESULT": "*bf16"
+    },
+    "constants": {
+      "ROWS": 31,
+      "CHANNELS": 2560,
+      "INNER": 9728,
+      "TILE_ROWS": 32,
+      "TILE_CHANNELS": 16,
+      "TILE_INNER": 128
+    },
+    "warps": 2,
+    "stages": 8,
+    "fusion": true,
+    "grid": [
+      160
+    ]
+  }
+]
