@@ -10,19 +10,12 @@ def main():
     OUT.mkdir(exist_ok=True)
     configs = []
     for cap in (255, 256, 257, 544, 640, 2080, 4097):
-        splits = (cap + 11 + 255) // 256
-        for kind in ('qkv', 'attention', 'compact'):
-            constants = dict(CAP=cap, W=12, D=128)
-            if kind == 'qkv':
-                constants.update(EPS=1e-6)
-            elif kind == 'attention':
-                constants.update(SPLITS=splits, SCALE=128**-0.5, BLOCK_N=256)
-            configs.append(('offline_chain.py', dict(
-                id=f'lookahead12_{kind}_c{cap}',
-                kernel=f'lookahead_{kind}_kernel', source='lookahead_kernels.py',
-                cap=cap, width=12, warps=8 if kind == 'attention' else 4,
-                stages=1 if kind == 'attention' else 3,
-                fusion=kind != 'qkv', constants=constants)))
+        configs.append(('offline_chain.py', dict(
+            id=f'lookahead12_attention_n128_c{cap}',
+            kernel='lookahead_attention_kernel', source='lookahead_kernels.py',
+            cap=cap, width=12, warps=8, stages=1, fusion=True,
+            constants=dict(CAP=cap, W=12, D=128, SPLITS=(cap+11+127)//128,
+                           SCALE=128**-0.5, BLOCK_N=128))))
     results = []
     for script, config in configs:
         try:
