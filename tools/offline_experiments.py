@@ -9,20 +9,20 @@ from offline_sm90 import OUT
 def main():
     OUT.mkdir(exist_ok=True)
     configs = []
-    for batch,prompt,output in ((4,2048,32),(16,512,128),(3,257,8),(2,259,1)):
-        prefix=prompt//2
-        for route,rows,span,begin in (
-            ('full',batch*prompt,prompt,0),
-            ('prefix',prefix,prefix,0),
-            ('suffix',batch*(prompt-prefix),prompt-prefix,prefix)):
+    for cap in (255, 256, 257, 544, 640, 2080, 4097):
+        splits = (cap + 11 + 255) // 256
+        for kind in ('qkv', 'attention', 'compact'):
+            constants = dict(CAP=cap, W=12, D=128)
+            if kind == 'qkv':
+                constants.update(EPS=1e-6)
+            elif kind == 'attention':
+                constants.update(SPLITS=splits, SCALE=128**-0.5, BLOCK_N=256)
             configs.append(('offline_chain.py', dict(
-                id=f'prefix_span_b{batch}_s{prompt}_n{output}_{route}',
-                kernel='prefill_qkv_rope_cache_kernel', source='prefix_span_prefill.py',
-                cap=prompt+output,width=1,warps=4,stages=3,fusion=False,
-                constants=dict(ROWS=rows,SPAN=span,CAP=prompt+output,
-                               EPS=1e-6,R=4,NQ=32,NKV=8,D=128,START=begin),
-                signature_types={name:'*bf16' for name in
-                                 ('QKV','QW','KW','COS','SIN','Q','KC','VC')})))
+                id=f'lookahead12_{kind}_c{cap}',
+                kernel=f'lookahead_{kind}_kernel', source='lookahead_kernels.py',
+                cap=cap, width=12, warps=8 if kind == 'attention' else 4,
+                stages=1 if kind == 'attention' else 3,
+                fusion=kind != 'qkv', constants=constants)))
     results = []
     for script, config in configs:
         try:
