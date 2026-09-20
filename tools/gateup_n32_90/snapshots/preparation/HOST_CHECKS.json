@@ -1,0 +1,371 @@
+{
+  "checks": [
+    {
+      "name": "all index coverage, K coverage, cast/loop AST identity, incumbent parity and exact terminal hook",
+      "passed": true
+    },
+    {
+      "name": "complete faster selection",
+      "passed": true,
+      "selected": 64,
+      "timing_order": [
+        [
+          "incumbent",
+          true
+        ],
+        [
+          128,
+          true
+        ],
+        [
+          128,
+          true
+        ],
+        [
+          "incumbent",
+          true
+        ],
+        [
+          "incumbent",
+          false
+        ],
+        [
+          128,
+          false
+        ],
+        [
+          "incumbent",
+          true
+        ],
+        [
+          64,
+          true
+        ],
+        [
+          64,
+          true
+        ],
+        [
+          "incumbent",
+          true
+        ],
+        [
+          "incumbent",
+          false
+        ],
+        [
+          64,
+          false
+        ]
+      ]
+    },
+    {
+      "name": "reject pointwise and nonfinite",
+      "passed": true,
+      "selected": "incumbent",
+      "timing_order": []
+    },
+    {
+      "name": "reject residual mutation",
+      "passed": true,
+      "selected": "incumbent",
+      "timing_order": []
+    },
+    {
+      "name": "reject dependent down error",
+      "passed": true,
+      "selected": "incumbent",
+      "timing_order": []
+    },
+    {
+      "name": "opposite order must clear margin",
+      "passed": true,
+      "selected": "incumbent",
+      "timing_order": [
+        [
+          "incumbent",
+          true
+        ],
+        [
+          128,
+          true
+        ],
+        [
+          128,
+          true
+        ],
+        [
+          "incumbent",
+          true
+        ],
+        [
+          "incumbent",
+          false
+        ],
+        [
+          128,
+          false
+        ],
+        [
+          "incumbent",
+          true
+        ],
+        [
+          64,
+          true
+        ],
+        [
+          64,
+          true
+        ],
+        [
+          "incumbent",
+          true
+        ],
+        [
+          "incumbent",
+          false
+        ],
+        [
+          64,
+          false
+        ]
+      ]
+    },
+    {
+      "name": "gate-only speed cannot admit slower consumer",
+      "passed": true,
+      "selected": "incumbent",
+      "timing_order": [
+        [
+          "incumbent",
+          true
+        ],
+        [
+          128,
+          true
+        ],
+        [
+          128,
+          true
+        ],
+        [
+          "incumbent",
+          true
+        ],
+        [
+          "incumbent",
+          false
+        ],
+        [
+          128,
+          false
+        ],
+        [
+          "incumbent",
+          true
+        ],
+        [
+          64,
+          true
+        ],
+        [
+          64,
+          true
+        ],
+        [
+          "incumbent",
+          true
+        ],
+        [
+          "incumbent",
+          false
+        ],
+        [
+          64,
+          false
+        ]
+      ]
+    },
+    {
+      "name": "reserve admission",
+      "passed": true,
+      "selected": "incumbent",
+      "timing_order": []
+    },
+    {
+      "name": "capture no-op",
+      "passed": true,
+      "selected": "incumbent",
+      "timing_order": []
+    },
+    {
+      "name": "unsupported device",
+      "passed": true,
+      "selected": "incumbent",
+      "timing_order": []
+    },
+    {
+      "name": "forced cublas retained",
+      "passed": true,
+      "selected": "incumbent",
+      "timing_order": []
+    },
+    {
+      "name": "norm mode retained",
+      "passed": true,
+      "selected": "incumbent",
+      "timing_order": []
+    },
+    {
+      "name": "reserve expires mid comparison",
+      "passed": true,
+      "selected": "incumbent",
+      "timing_order": [
+        [
+          "incumbent",
+          true
+        ]
+      ]
+    },
+    {
+      "name": "local deadline discards provisional winner",
+      "passed": true,
+      "selected": "incumbent",
+      "timing_order": [
+        [
+          "incumbent",
+          true
+        ],
+        [
+          128,
+          true
+        ],
+        [
+          128,
+          true
+        ],
+        [
+          "incumbent",
+          true
+        ],
+        [
+          "incumbent",
+          false
+        ],
+        [
+          128,
+          false
+        ],
+        [
+          "incumbent",
+          true
+        ]
+      ]
+    },
+    {
+      "name": "reserve discards provisional winner",
+      "passed": true,
+      "selected": "incumbent",
+      "timing_order": [
+        [
+          "incumbent",
+          true
+        ],
+        [
+          128,
+          true
+        ],
+        [
+          128,
+          true
+        ],
+        [
+          "incumbent",
+          true
+        ],
+        [
+          "incumbent",
+          false
+        ],
+        [
+          128,
+          false
+        ],
+        [
+          "incumbent",
+          true
+        ]
+      ]
+    },
+    {
+      "name": "invalid timing rejects transaction",
+      "passed": true,
+      "selected": "incumbent",
+      "timing_order": [
+        [
+          "incumbent",
+          true
+        ],
+        [
+          128,
+          true
+        ],
+        [
+          128,
+          true
+        ],
+        [
+          "incumbent",
+          true
+        ],
+        [
+          "incumbent",
+          false
+        ],
+        [
+          128,
+          false
+        ],
+        [
+          "incumbent",
+          true
+        ],
+        [
+          64,
+          true
+        ]
+      ]
+    },
+    {
+      "name": "candidate error propagates after drain",
+      "passed": true,
+      "result": "error propagated"
+    },
+    {
+      "name": "incumbent consumer error propagates after drain",
+      "passed": true,
+      "result": "error propagated"
+    },
+    {
+      "name": "actual timer retains 39 output pairs, graph, stream and inputs until all three drains",
+      "passed": true
+    },
+    {
+      "name": "inner drain quarantines all owners and bypasses Exception fallback",
+      "passed": true
+    },
+    {
+      "name": "final drain quarantines all owners and bypasses Exception fallback",
+      "passed": true
+    },
+    {
+      "name": "actual production wrapper uses unchanged norm and fresh outputs",
+      "passed": true
+    }
+  ],
+  "count": 22,
+  "gpu_execution": false,
+  "triton_compilation": false,
+  "warning": "CPU mocks establish source geometry and host policy/lifetime only, not GPU correctness, resources or speed."
+}

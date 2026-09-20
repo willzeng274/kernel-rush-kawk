@@ -17,13 +17,13 @@ jobs:
           python-version: '3.11'
       - name: Install pinned compiler only
         run: python -m pip install --disable-pip-version-check triton==3.1.0
-      - name: Compile seven frozen M64 projection specializations
+      - name: Compile exactly two frozen N32 gate/up specializations
         run: |
-          python tools/krxfty_wide_fresh_88/preflight.py
-          timeout 180s python tools/krxfty_wide_fresh_88/compile_wide.py
+          python tools/gateup_n32_90/preflight.py
+          timeout 180s python tools/gateup_n32_90/compile_n32.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: sm90-compiler-evidence
-          path: tools/krxfty_wide_fresh_88/compile-results/
+          path: tools/gateup_n32_90/compile-results/
           retention-days: 1

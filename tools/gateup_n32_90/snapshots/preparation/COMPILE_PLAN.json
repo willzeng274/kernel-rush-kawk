@@ -1,0 +1,104 @@
+{
+  "status": "PROPOSED_NOT_EXECUTED",
+  "kernel": "gateup_n32_kernel",
+  "source_sha256": "7059cb67f089f9b1654347524347b4f559a91e355e88dfc9023c5048b341fe87",
+  "compiler": "Triton 3.1.0",
+  "target": {
+    "backend": "cuda",
+    "arch": 90,
+    "warp_size": 32
+  },
+  "total_timeout_seconds": 180,
+  "gpu_execution": false,
+  "driver_or_torch_required": false,
+  "runtime_launch_grid": [
+    304
+  ],
+  "arguments": [
+    "X",
+    "W",
+    "Y",
+    "stride_xm",
+    "stride_wn",
+    "stride_ym",
+    "K",
+    "I",
+    "BLOCK_K"
+  ],
+  "signature": {
+    "0": "*bf16",
+    "1": "*bf16",
+    "2": "*bf16",
+    "3": "i32",
+    "4": "i32",
+    "5": "i32"
+  },
+  "runtime_values": {
+    "stride_xm": 2560,
+    "stride_wn": 2560,
+    "stride_ym": 9728
+  },
+  "native_attributes": {
+    "derive": "kernel._get_config with aligned pointers and actual scalar values",
+    "expected_divisible_by_16": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "equal_to_1": []
+  },
+  "cases": [
+    {
+      "name": "m64_final32_dot64_k128_s2",
+      "constants": {
+        "K": 2560,
+        "I": 9728,
+        "BLOCK_K": 128
+      },
+      "options": {
+        "num_warps": 4,
+        "num_stages": 2,
+        "enable_fp_fusion": true
+      }
+    },
+    {
+      "name": "m64_final32_dot64_k64_s3",
+      "constants": {
+        "K": 2560,
+        "I": 9728,
+        "BLOCK_K": 64
+      },
+      "options": {
+        "num_warps": 4,
+        "num_stages": 3,
+        "enable_fp_fusion": true
+      }
+    }
+  ],
+  "artifacts": [
+    "source/hash",
+    "native signature/constexpr/attributes/options",
+    "TTIR",
+    "TTGIR",
+    "LLVM IR",
+    "PTX",
+    "PTXAS sm_90a resources",
+    "WGMMA/async-copy/shared-layout/cast instruction inventory"
+  ],
+  "review": [
+    "Genuine MMA3/WGMMA expected m64n64k16",
+    "K-loop pipelining survives",
+    "No stack or spill/local-memory traffic",
+    "Report actual registers/dynamic shared memory",
+    "All BF16 casts remain",
+    "Inspect stmatrix as well as st.shared",
+    "Do not infer GPU safety or speed from compile success"
+  ],
+  "incumbent_receipts": "Reuse existing exact gateup64 receipt b4d27d12cf77e7e2f7651ab883f5ab7a27fa8558; no incumbent compiler rerun proposed."
+}

@@ -1,0 +1,16 @@
+{
+  "status": "ROOT_SOURCE_REVIEW_PASS_COMPILE_AUTHORIZED",
+  "at_utc": "2026-09-20T09:25:33.828542+00:00",
+  "reviewed": [
+    "Full kernel, selector, exact model diff",
+    "Full22case CPU harness/results; native compile plan and proposed driver",
+    "Full report/freezer;20source/archive hashes and17unchanged base files"
+  ],
+  "source_set_sha256": "912f2a1d09b38a98773613746175583f8a11ee336447792e35c0642d6a192773",
+  "source_files": 20,
+  "unchanged_base_files": 17,
+  "trusted_archive_sha256": "db42a75b472ee4c8ecbd2f3a42283846e6b875b8c7998abe881043f86592b11c",
+  "trusted_archive_bytes": 41992,
+  "gpu_execution": false,
+  "compile_authorization": "Exactly two cases, one CPU CI worker,180secondtotal/40secondpercase, nativebinder before firstbuild; stop on failure, no retry or expansion"
+}
