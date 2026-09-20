@@ -7,7 +7,6 @@ child's exit code turns all of those into a plain "no".
 
     ek_probe.py basic
     ek_probe.py shape <batch> <nq> <bucket> <n_kv> <n_heads> <head_dim>
-    ek_probe.py prefill <n_kv> <n_heads> <head_dim>
 """
 import sys
 
@@ -30,33 +29,103 @@ def basic() -> int:
     return 0 if float(x.sum().item()) == 64.0 else 3
 
 
-def prefill(n_kv, n_heads, d) -> int:
-    """Optional kernel only: full/tail tiles, actual strides, poisoned suffix."""
-    import ek_kernels as K
-    from torch.nn.attention import SDPBackend, sdpa_kernel
+def check_fused_verify(K, b, nq, bucket, n_kv, n_heads, d):
+    """Compare one fresh unfused/fused verifier-attention pair on CUDA/BF16.
 
-    b, capacity = 2, 256
-    for s in (128, 130):
-        qkv = torch.randn(b * s, (n_heads + 2 * n_kv) * d,
-                          device="cuda", dtype=torch.bfloat16)
-        q = qkv[:, :n_heads * d].view(b, s, n_heads, d).transpose(1, 2)
-        kc = torch.full((b, n_kv, capacity, d), float("nan"),
-                        device="cuda", dtype=torch.bfloat16)
-        vc = torch.full_like(kc, float("nan"))
-        k, v = kc[:, :, :s], vc[:, :, :s]
-        k.copy_(torch.randn_like(k))
-        v.copy_(torch.randn_like(v))
-        out = K.attn_prefill(q, k, v, d ** -0.5)
-        if out is None:
-            return 4
-        with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
-            ref = torch.nn.functional.scaled_dot_product_attention(
-                q, k, v, is_causal=True, scale=d ** -0.5, enable_gqa=True)
-        ref = ref.transpose(1, 2).reshape(b * s, n_heads * d)
-        torch.cuda.synchronize()
-        if not torch.isfinite(out).all() or not torch.allclose(out, ref, atol=0.02, rtol=0.02):
-            return 4
-    return 0
+    Use a prefix one token before a real split boundary near the bucket's
+    midpoint when possible. Q3 then writes one slot in the earlier split and
+    two in the later split. Otherwise use one legal middle prefix.
+
+    V and preserved prefix contents must match exactly. Transformed K and
+    attention outputs use atol=rtol=1/128: one BF16 machine epsilon relative,
+    plus an absolute floor around zero for cancellation/reassociation. This
+    conservative operation tolerance is not the judge's 2-logit allowance.
+    Exceptions intentionally propagate to the existing child-process boundary.
+    """
+    import torch
+
+    if (b <= 0 or nq <= 0 or n_kv <= 0 or n_heads <= 0 or n_heads % n_kv
+            or d <= 0 or d % 2 or bucket < nq + 1):
+        return False
+    dev, dt = "cuda", torch.bfloat16
+    splits, chunk, block_n = K.plan_splits(b, n_kv, bucket)
+    if splits <= 0 or chunk <= 0:
+        return False
+    boundaries = [x for x in range(chunk, min(bucket, splits * chunk), chunk)
+                  if x - 1 + nq <= bucket] if nq > 1 else []
+    length = (min(boundaries, key=lambda x: abs(x - bucket // 2)) - 1
+              if boundaries else min(max(1, bucket // 2), bucket - nq))
+
+    gen = torch.Generator(device=dev).manual_seed(87231)
+    raw = torch.randn(b * nq, (n_heads + 2 * n_kv) * d,
+                      device=dev, dtype=dt, generator=gen)
+    reference_qkv = raw.clone()  # the unfused operation overwrites Q in place
+    qn = torch.linspace(0.75, 1.25, d, device=dev).to(dt)
+    kn = torch.linspace(1.25, 0.75, d, device=dev).to(dt)
+
+    # Proper rotate-half RoPE tables: repeated halves at the same positions.
+    positions = (length + torch.arange(nq, device=dev)).repeat(b).float()
+    inv_freq = 5_000_000.0 ** (-torch.arange(0, d, 2, device=dev).float() / d)
+    phase = positions[:, None] * inv_freq[None, :]
+    phase = torch.cat((phase, phase), dim=1)
+    cos, sin = phase.cos().to(dt), phase.sin().to(dt)
+    len_b = torch.full((b,), length, device=dev, dtype=torch.int64)
+    start = torch.zeros(b, device=dev, dtype=torch.int32)
+
+    reference_k = torch.randn(b, n_kv, bucket, d, device=dev, dtype=dt, generator=gen)
+    reference_v = torch.randn(b, n_kv, bucket, d, device=dev, dtype=dt, generator=gen)
+    reference_k[:, :, length:].fill_(float("nan"))
+    reference_v[:, :, length:].fill_(float("nan"))
+    fused_k, fused_v = reference_k.clone(), reference_v.clone()
+
+    sp = K._next_pow2(splits)
+    gp = max(16, K._next_pow2(nq * (n_heads // n_kv)))
+    acc = torch.empty(b, n_kv, sp, gp, d, device=dev, dtype=torch.float32)
+    lsum = torch.empty(b, n_kv, sp, gp, device=dev, dtype=torch.float32)
+    mmax = torch.empty_like(lsum)
+    output = torch.empty(b * nq, n_heads, d, device=dev, dtype=dt)
+    workspace = (acc, lsum, mmax, output, splits, chunk, block_n)
+
+    def reset_workspace():
+        # Padded splits must stay neutral for the existing combine kernel.
+        # Real splits/output are poisoned to expose missing fused stores,
+        # rather than accidentally inheriting the preceding reference result.
+        acc.zero_()
+        lsum.zero_()
+        mmax.fill_(-1e30)
+        acc[:, :, :splits].fill_(float("nan"))
+        lsum[:, :, :splits].fill_(float("nan"))
+        mmax[:, :, :splits].fill_(float("nan"))
+        output.fill_(float("nan"))
+
+    K.qk_norm_rope_kv(reference_qkv, qn, kn, cos, sin, reference_k, reference_v,
+                      len_b, n_heads, n_kv, 1e-6, nq)
+    reference_q = reference_qkv[:, :n_heads * d].view(b * nq, n_heads, d)
+    reset_workspace()
+    reference = K.flash_verify(reference_q, reference_k, reference_v, len_b,
+                               start, workspace, d ** -0.5, nq).clone()
+    # Both wrappers return workspace[3]. The clone above must precede reuse.
+    reset_workspace()
+    fused = K.rope_attn_verify(raw, qn, kn, cos, sin, fused_k, fused_v, len_b,
+                               start, workspace, d ** -0.5, n_heads, nq, 1e-6)
+    torch.cuda.synchronize()
+
+    stop = length + nq
+    ref_new_k, new_k = reference_k[:, :, length:stop], fused_k[:, :, length:stop]
+    ref_new_v, new_v = reference_v[:, :, length:stop], fused_v[:, :, length:stop]
+    if not all(bool(torch.isfinite(x).all())
+               for x in (reference, fused, ref_new_k, new_k, ref_new_v, new_v)):
+        return False
+    if not torch.equal(ref_new_v, new_v):
+        return False
+    for ref_cache, new_cache in ((reference_k, fused_k), (reference_v, fused_v)):
+        if not torch.equal(ref_cache[:, :, :length], new_cache[:, :, :length]):
+            return False
+        if not bool(torch.isnan(new_cache[:, :, stop:]).all()):
+            return False
+    return (torch.allclose(ref_new_k, new_k, atol=1 / 128, rtol=1 / 128)
+            and torch.allclose(reference, fused, atol=1 / 128, rtol=1 / 128))
+
 
 
 def shape(b, nq, bucket, n_kv, n_heads, d) -> int:
@@ -132,11 +201,11 @@ def shape(b, nq, bucket, n_kv, n_heads, d) -> int:
     out = K.flash_verify(q, kc, vc, len_b, torch.zeros(b, dtype=torch.int32, device=dev),
                          ws, d ** -0.5, nq)
     torch.cuda.synchronize()
-    return 0 if torch.isfinite(out.float()).all() else 4
+    if not torch.isfinite(out.float()).all():
+        return 4
+    return 0 if check_fused_verify(K, b, nq, bucket, n_kv, n_heads, d) else 4
 
 
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "basic"
-    if mode == "prefill":
-        sys.exit(prefill(*[int(a) for a in sys.argv[2:5]]))
     sys.exit(basic() if mode == "basic" else shape(*[int(a) for a in sys.argv[2:8]]))

@@ -18,7 +18,7 @@ import torch
 import torch.nn.functional as F
 
 import ek_kernels
-from ek_kernels import (add_rms_norm, add_rms_norm_parts, attn_prefill, attn_torch, gemv_parts, gemv_swiglu, heads_to_rows,
+from ek_kernels import (add_rms_norm, add_rms_norm_parts, attn_torch, gemv_parts, gemv_swiglu, heads_to_rows,
                         rope_attn_decode, rope_attn_verify, flash_decode, flash_verify, gemv,
                         norm_gemv, qk_norm_rope_kv, rms_norm, silu_mul)
 
@@ -74,10 +74,8 @@ class Qwen3(torch.nn.Module):
         self._gemv_choice = {}
         self.split_k = os.environ.get("ENGINE_SPLIT", "1") == "1"
         self.fuse_swiglu = os.environ.get("ENGINE_SWIGLU", "0") == "1"
-        self.fuse_rope_verify = (os.environ.get("ENGINE_ROPE_VERIFY", "0") == "1"
+        self.fuse_rope_verify = (os.environ.get("ENGINE_ROPE_VERIFY", "1") == "1"
                                  and ek_kernels.has_triton())
-        self.prefill_triton = (os.environ.get("ENGINE_PREFILL_ATTN", "1") == "1"
-                               and ek_kernels.has_triton())
         self.fuse_rope_attn = (os.environ.get("ENGINE_ROPE_ATTN", "1") == "1"
                                and ek_kernels.has_triton())
         self.fused = os.environ.get("ENGINE_FUSED", "0") == "1" and ek_kernels.has_triton()
@@ -296,14 +294,6 @@ class Qwen3(torch.nn.Module):
             k = k_cache[i][:, :, :s]
             v = v_cache[i][:, :, :s]
 
-            if (self._sdpa_cudnn is None and self.prefill_triton
-                    and ek_kernels.has_triton() and attn_bias is None and self._sdpa_gqa):
-                o = attn_prefill(q, k, v, self.sm_scale)
-                if o is not None:
-                    x = torch.matmul(o, layer["o_t"])
-                    x, residual = add_rms_norm(x, residual, layer["ln2"], c.rms_eps)
-                    x = self._mlp(x, layer)
-                    continue
             if self._sdpa_gqa:
                 o = self._sdpa(q, k, v, attn_bias)
             else:

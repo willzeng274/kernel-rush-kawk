@@ -190,7 +190,6 @@ class _FastEngine:
         # compile-and-run probe: decides Triton kernels vs the pure-torch path
         self.triton = ek_kernels.probe_triton() if self.cuda else False
         self.model = Qwen3(model_path, self.device)
-        self._prefill_probe_done = False
         cfg = self.model.cfg
         self.n_kv = cfg.num_kv_heads
         self.head_dim = cfg.head_dim
@@ -466,15 +465,6 @@ class _FastEngine:
             self.graphs[key] = self._capture(b, bucket)
         return self.graphs[key]
 
-    def _ensure_prefill_probe(self):
-        if (self._prefill_probe_done or not self.cuda or not self.triton
-                or not self.model.prefill_triton or not ek_kernels.has_triton()):
-            return
-        self._prefill_probe_done = True
-        if not _child_ok(["prefill", self.n_kv, self.model.cfg.num_heads, self.head_dim], timeout=45):
-            # The optional kernel must never disable the accepted decode kernels.
-            self.model.prefill_triton = False
-
     def _first_token(self, ids, pos, b, s, bias):
         """Prefill and return the first output token, [B] on device.
 
@@ -483,7 +473,6 @@ class _FastEngine:
         GPU work is unchanged; what goes away is ~10 ms of host launch overhead
         per request, which is 7% of a batch-1 512->32 workload.
         """
-        self._ensure_prefill_probe()
         kv_k = [t[:b] for t in self.k_cache]
         kv_v = [t[:b] for t in self.v_cache]
         graphable = (PREFILL_GRAPH and bias is None and b * s <= PREFILL_TOKENS)
@@ -529,7 +518,6 @@ class _FastEngine:
 
     def _prefill(self, ids, pos, k_cache, v_cache, bias):
         """Prefill in row groups so peak activation memory does not grow with batch."""
-        self._ensure_prefill_probe()
         b, s = ids.shape
         rows = max(1, PREFILL_TOKENS // max(s, 1))
         if rows >= b:

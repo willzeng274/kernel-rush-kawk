@@ -164,64 +164,6 @@ if _HAS_TRITON:
                  mask=mask[:, None])
 
     @triton.jit
-    def _attn_prefill_kernel(
-        Q, K, V, O, qk_scale, S,
-        stride_qb, stride_qh, stride_qs, stride_kb, stride_kh, stride_ks, stride_os,
-        H: tl.constexpr, G: tl.constexpr, D: tl.constexpr,
-        BLOCK_M: tl.constexpr, BLOCK_N: tl.constexpr,
-    ):
-        """Causal GQA prefill attention, one program per (query block, batch, head),
-        written straight into the [B*S, H*D] row layout the output projection
-        reads. On an H100 with Triton 3.1 the 128x128 / 8-warp tiling runs
-        4 x 2048 at ~340 TFLOPS against ~280 for torch's FlashAttention-2, and
-        the sandbox cannot run cuDNN's. Blocks strictly below the diagonal band
-        skip the mask, which needs BLOCK_M % BLOCK_N == 0."""
-        pid_m = tl.program_id(0)
-        pid_bh = tl.program_id(1)
-        b = pid_bh // H
-        h = pid_bh % H
-        hk = h // G
-        offs_m = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
-        offs_d = tl.arange(0, D)
-        mmask = offs_m < S
-        q = tl.load(Q + b * stride_qb + h * stride_qh + offs_m[:, None] * stride_qs + offs_d[None, :],
-                    mask=mmask[:, None], other=0.0)
-        m_i = tl.full([BLOCK_M], -1e30, tl.float32)
-        l_i = tl.zeros([BLOCK_M], tl.float32)
-        acc = tl.zeros([BLOCK_M, D], tl.float32)
-        kbase = K + b * stride_kb + hk * stride_kh
-        vbase = V + b * stride_kb + hk * stride_kh
-        for n0 in range(0, pid_m * BLOCK_M, BLOCK_N):
-            offs_n = n0 + tl.arange(0, BLOCK_N)
-            k = tl.load(kbase + offs_n[:, None] * stride_ks + offs_d[None, :])
-            qk = tl.dot(q, tl.trans(k)) * qk_scale
-            m_new = tl.maximum(m_i, tl.max(qk, 1))
-            alpha = tl.exp2(m_i - m_new)
-            p = tl.exp2(qk - m_new[:, None])
-            v = tl.load(vbase + offs_n[:, None] * stride_ks + offs_d[None, :])
-            acc = acc * alpha[:, None] + tl.dot(p.to(tl.bfloat16), v)
-            l_i = l_i * alpha + tl.sum(p, 1)
-            m_i = m_new
-        hi = tl.minimum((pid_m + 1) * BLOCK_M, S)
-        for n0 in range(pid_m * BLOCK_M, hi, BLOCK_N):
-            offs_n = n0 + tl.arange(0, BLOCK_N)
-            nmask = offs_n < S
-            k = tl.load(kbase + offs_n[:, None] * stride_ks + offs_d[None, :], mask=nmask[:, None], other=0.0)
-            qk = tl.dot(q, tl.trans(k)) * qk_scale
-            qk = tl.where((offs_n[None, :] <= offs_m[:, None]) & nmask[None, :], qk, -1e30)
-            m_new = tl.maximum(m_i, tl.max(qk, 1))
-            alpha = tl.exp2(m_i - m_new)
-            p = tl.exp2(qk - m_new[:, None])
-            v = tl.load(vbase + offs_n[:, None] * stride_ks + offs_d[None, :], mask=nmask[:, None], other=0.0)
-            acc = acc * alpha[:, None] + tl.dot(p.to(tl.bfloat16), v)
-            l_i = l_i * alpha + tl.sum(p, 1)
-            m_i = m_new
-        o = acc / l_i[:, None]
-        tl.store(O + (b * S + offs_m)[:, None] * stride_os + h * D + offs_d[None, :], o.to(tl.bfloat16),
-                 mask=mmask[:, None])
-
-
-    @triton.jit
     def _qk_norm_rope_kv_kernel(
         QKV, QN, KN, COS, SIN, KC, VC, SlotBase,
         M, stride_qkv_m, stride_cos_m,
@@ -844,6 +786,9 @@ if _HAS_TRITON:
         qpn = (xqp * rq[:, None]).to(tl.bfloat16) * tl.load(QN + idx)[None, :]
         qrot = tl.where(cols[None, :] < HALF, -qpn, qpn)
         q = tl.where(qmask[:, None], (qn_ * cq) + (qrot * sq), 0.0).to(tl.bfloat16)
+        # the loop below streams the slots just written: every warp must see the
+        # stores before any warp issues those loads
+        tl.debug_barrier()
 
         m_i = tl.full([GP], -1e30, tl.float32)
         l_i = tl.zeros([GP], tl.float32)
@@ -1069,32 +1014,6 @@ def silu_mul(gu):
         x2, y, x2.stride(0), y.stride(0), N=n, BLOCK=BLOCK, num_warps=4,
     )
     return y.view(shape)
-
-
-def attn_prefill(q, k, v, sm_scale):
-    """Causal BF16/D128 GQA with unit final strides and equal K/V strides.
-    Returns rows [B*S, HQ*D], or None for unsupported inputs."""
-    if not (_HAS_TRITON and q.is_cuda and q.ndim == k.ndim == v.ndim == 4
-            and q.device == k.device == v.device
-            and q.dtype == k.dtype == v.dtype == torch.bfloat16):
-        return None
-    b, hq, s, d = q.shape
-    hkv = k.shape[1]
-    if (b <= 0 or s <= 0 or hq <= 0 or hkv <= 0 or hq % hkv or d != 128
-            or k.shape[0] != b or v.shape[0] != b or v.shape[1] != hkv
-            or k.shape[2] < s or v.shape[2] < s or k.shape[3] != d or v.shape[3] != d
-            or q.stride(-1) != 1 or k.stride(-1) != 1 or v.stride(-1) != 1
-            or k.stride() != v.stride() or q.stride(2) <= 0 or k.stride(2) <= 0):
-        return None
-    o = torch.empty(b * s, hq * d, dtype=q.dtype, device=q.device)
-    bm, bn, warps, stages = 128, 128, 8, 2   # swept on an H100: 4x2048 0.50 -> 0.40 ms per layer
-    _attn_prefill_kernel[(_cdiv(s, bm), b * hq)](
-        q, k, v, o, sm_scale * 1.4426950408889634, s,
-        q.stride(0), q.stride(1), q.stride(2), k.stride(0), k.stride(1), k.stride(2), o.stride(0),
-        H=hq, G=hq // hkv, D=d, BLOCK_M=bm, BLOCK_N=bn, num_warps=warps, num_stages=stages,
-    )
-    return o
-
 
 
 def heads_to_rows(o):
