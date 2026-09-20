@@ -11,7 +11,7 @@ from offline_sm90 import OUT, ROOT
 def main():
     OUT.mkdir(exist_ok=True)
     source = ROOT / 'engine' / 'sglang_inline_gemv.py'
-    expected = 'c322fdd7c2e9238f8cdbacf48286dbb133a82fe3fccfbce406437bd5fab6a87c'
+    expected = 'd256f2294cee9db535a7c364aa153ec1f70f5ec447e4dcc5d5969d4c79f2086a'
     assert hashlib.sha256(source.read_bytes()).hexdigest() == expected
     spec = importlib.util.spec_from_file_location('sglang_inline_gemv', source)
     module = importlib.util.module_from_spec(spec)
