@@ -22,6 +22,7 @@ import triton.language as tl
 from kernels.accept import flat_children
 from kernels.attention import ancestor_masks
 from pair_cache import PAIR_SLOTS, _pair_slot, _publish_pairs_kernel
+from kernels.top8 import VerifierTop8
 
 #: Rough acceptance probability of a child by its rank among a node's k
 #: candidates, used only to decide which tree nodes are worth a row.
@@ -164,9 +165,13 @@ class Recycler:
         self.SP = self.S + self.maxa + 1
         self.spine = torch.full((B, self.SP), -1, dtype=torch.int64, device=device)
         self.spine_anchor = torch.zeros((B,), dtype=torch.int32, device=device)
+        self.verifier_top8 = VerifierTop8(vocab, B * R, device) if k == 8 and vocab == 151936 else None
 
     def update(self, tokens: torch.Tensor, logits: torch.Tensor, *, cache_pairs: bool = False) -> None:
         """Record the top-k next tokens predicted after each of ``tokens`` ([N] int64, logits [N, V])."""
+        if cache_pairs and self.verifier_top8 is not None:
+            self.verifier_top8.update(self.table, tokens, logits, self.top)
+            return
         top = torch.topk(logits, self.k, dim=-1).indices.to(torch.int32)
         self.table.index_copy_(0, tokens, top)
         # Prefill calls use arbitrary row chunks, sometimes coincidentally B*R.
