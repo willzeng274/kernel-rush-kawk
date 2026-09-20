@@ -1,0 +1,395 @@
+{
+  "scope": "One bounded CPU-only SM90 CI job, exactly fourteen compile calls, no GPU execution or official submission",
+  "compiler_base_commit": "b4d27d12cf77e7e2f7651ab883f5ab7a27fa8558",
+  "candidate_base_commit": "c3e4bfd6c65585c53e8552743f50f7285effee6d",
+  "candidate_source_tree_sha256": "c3eeec94369502f045a0dac8c263c254535474a87575a14a9492af3004ed89f5",
+  "triton": "3.1.0",
+  "sources": {
+    "recycle.py": {
+      "source_path": "work/candidates/krxfty_pair_cache/engine/recycle.py",
+      "source_sha256": "cdc16b637ead9fe7085bc896991772c0aaa248a287dac878b27f150778366609",
+      "snapshot": "snapshots/recycle.py",
+      "decorated_function_sha256": "237b8d3f3ef6e9f5444770b99a1090c40d95d57625e4f0f6f9318827da54bde0",
+      "lines": [
+        88,
+        130
+      ],
+      "function": "_draft_kernel",
+      "module": "draft.py"
+    },
+    "pair_cache.py": {
+      "source_path": "work/candidates/krxfty_pair_cache/engine/pair_cache.py",
+      "source_sha256": "40a3b1985c25ff768d067e4aea171271d640c9dad46513242a0f8ce1b1ac4030",
+      "snapshot": "pair_cache.py",
+      "functions": {
+        "_pair_slot": {
+          "lines": [
+            43,
+            47
+          ],
+          "decorated_function_sha256": "bf79af8cfa3a92f684e90b95d15388fa859f124f0a38ef33e38e522e2f9b9280"
+        },
+        "_publish_pairs_kernel": {
+          "lines": [
+            50,
+            79
+          ],
+          "decorated_function_sha256": "37a6311a0c3ba4908c34f47cf0203f4ccdd0fe5ef210f29c40e2ec4401e429ca"
+        }
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "draft_r2",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 2,
+        "S": 1,
+        "SP": 3
+      },
+      "num_warps": 4,
+      "pointer_dtypes": [
+        "i64",
+        "i32",
+        "i32",
+        "i32",
+        "i32",
+        "i64",
+        "i32",
+        "i32",
+        "i64",
+        "i64",
+        "i64",
+        "i64",
+        "i32"
+      ]
+    },
+    {
+      "id": "publish_r2",
+      "kind": "publish",
+      "kernel": "_publish_pairs_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 2,
+        "MAXA": 1,
+        "P": 8
+      },
+      "num_warps": 1,
+      "pointer_dtypes": [
+        "i64",
+        "i32",
+        "i64",
+        "i32",
+        "i64",
+        "i64",
+        "i32",
+        "i32"
+      ]
+    },
+    {
+      "id": "draft_r3",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 3,
+        "S": 2,
+        "SP": 5
+      },
+      "num_warps": 4,
+      "pointer_dtypes": [
+        "i64",
+        "i32",
+        "i32",
+        "i32",
+        "i32",
+        "i64",
+        "i32",
+        "i32",
+        "i64",
+        "i64",
+        "i64",
+        "i64",
+        "i32"
+      ]
+    },
+    {
+      "id": "publish_r3",
+      "kind": "publish",
+      "kernel": "_publish_pairs_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 3,
+        "MAXA": 2,
+        "P": 8
+      },
+      "num_warps": 1,
+      "pointer_dtypes": [
+        "i64",
+        "i32",
+        "i64",
+        "i32",
+        "i64",
+        "i64",
+        "i32",
+        "i32"
+      ]
+    },
+    {
+      "id": "draft_r4",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 4,
+        "S": 3,
+        "SP": 7
+      },
+      "num_warps": 4,
+      "pointer_dtypes": [
+        "i64",
+        "i32",
+        "i32",
+        "i32",
+        "i32",
+        "i64",
+        "i32",
+        "i32",
+        "i64",
+        "i64",
+        "i64",
+        "i64",
+        "i32"
+      ]
+    },
+    {
+      "id": "publish_r4",
+      "kind": "publish",
+      "kernel": "_publish_pairs_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 4,
+        "MAXA": 3,
+        "P": 8
+      },
+      "num_warps": 1,
+      "pointer_dtypes": [
+        "i64",
+        "i32",
+        "i64",
+        "i32",
+        "i64",
+        "i64",
+        "i32",
+        "i32"
+      ]
+    },
+    {
+      "id": "draft_r8",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 8,
+        "S": 4,
+        "SP": 9
+      },
+      "num_warps": 4,
+      "pointer_dtypes": [
+        "i64",
+        "i32",
+        "i32",
+        "i32",
+        "i32",
+        "i64",
+        "i32",
+        "i32",
+        "i64",
+        "i64",
+        "i64",
+        "i64",
+        "i32"
+      ]
+    },
+    {
+      "id": "publish_r8",
+      "kind": "publish",
+      "kernel": "_publish_pairs_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 8,
+        "MAXA": 4,
+        "P": 8
+      },
+      "num_warps": 1,
+      "pointer_dtypes": [
+        "i64",
+        "i32",
+        "i64",
+        "i32",
+        "i64",
+        "i64",
+        "i32",
+        "i32"
+      ]
+    },
+    {
+      "id": "draft_r16",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 16,
+        "S": 5,
+        "SP": 11
+      },
+      "num_warps": 4,
+      "pointer_dtypes": [
+        "i64",
+        "i32",
+        "i32",
+        "i32",
+        "i32",
+        "i64",
+        "i32",
+        "i32",
+        "i64",
+        "i64",
+        "i64",
+        "i64",
+        "i32"
+      ]
+    },
+    {
+      "id": "publish_r16",
+      "kind": "publish",
+      "kernel": "_publish_pairs_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 16,
+        "MAXA": 5,
+        "P": 8
+      },
+      "num_warps": 1,
+      "pointer_dtypes": [
+        "i64",
+        "i32",
+        "i64",
+        "i32",
+        "i64",
+        "i64",
+        "i32",
+        "i32"
+      ]
+    },
+    {
+      "id": "draft_r32",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 32,
+        "S": 6,
+        "SP": 13
+      },
+      "num_warps": 4,
+      "pointer_dtypes": [
+        "i64",
+        "i32",
+        "i32",
+        "i32",
+        "i32",
+        "i64",
+        "i32",
+        "i32",
+        "i64",
+        "i64",
+        "i64",
+        "i64",
+        "i32"
+      ]
+    },
+    {
+      "id": "publish_r32",
+      "kind": "publish",
+      "kernel": "_publish_pairs_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 32,
+        "MAXA": 6,
+        "P": 8
+      },
+      "num_warps": 1,
+      "pointer_dtypes": [
+        "i64",
+        "i32",
+        "i64",
+        "i32",
+        "i64",
+        "i64",
+        "i32",
+        "i32"
+      ]
+    },
+    {
+      "id": "draft_r64",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 64,
+        "S": 8,
+        "SP": 17
+      },
+      "num_warps": 4,
+      "pointer_dtypes": [
+        "i64",
+        "i32",
+        "i32",
+        "i32",
+        "i32",
+        "i64",
+        "i32",
+        "i32",
+        "i64",
+        "i64",
+        "i64",
+        "i64",
+        "i32"
+      ]
+    },
+    {
+      "id": "publish_r64",
+      "kind": "publish",
+      "kernel": "_publish_pairs_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 64,
+        "MAXA": 8,
+        "P": 8
+      },
+      "num_warps": 1,
+      "pointer_dtypes": [
+        "i64",
+        "i32",
+        "i64",
+        "i32",
+        "i64",
+        "i64",
+        "i32",
+        "i32"
+      ]
+    }
+  ],
+  "compiler_module_sha256": "fc83d5fda4d255fd4a08dc35694e2ee85e62d7a5af5bb93e98cfed4e8b5f9708",
+  "options": "Native JIT _get_config for allocation-aligned pointers and exact constexpr values; draft options empty, publisher num_warps=1; both retain num_stages=3 and enable_fp_fusion=True defaults",
+  "limits": {
+    "job_attempts": 1,
+    "process_seconds": 180,
+    "per_case_seconds": 40
+  },
+  "coverage": "K8 default R4/8/16/32/64 and short-loop R2/3 only. No B sweep; no K1/K12; not exhaustive fallbackR coverage."
+}
