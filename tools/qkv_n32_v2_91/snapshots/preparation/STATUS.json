@@ -1,0 +1,16 @@
+{
+  "status": "FROZEN_PENDING_ROOT_REVIEW_AND_SEPARATE_COMPILE_AUTHORIZATION",
+  "base_revision": 91,
+  "base_commit": "60956a2979216d7791c57b3030534288d13c01df",
+  "source_set_sha256": "d2129833a220c225147db65759e0105c455885144b6f811c7b022cde9032dae3",
+  "archive": "trusted-engine.tar.gz",
+  "archive_bytes": 44846,
+  "archive_sha256": "b4c7f043837691d6c263a84d363a5f0a2192dabd65f8a6571c2aa449cf5dd0c9",
+  "host_checks": 32,
+  "kernel_sha256": "edc91ecbec3a454a0dadcd468c84d49ec94c1133f44e9aad4799b3dcfd1889a3",
+  "gpu_execution": false,
+  "compiler_execution": false,
+  "ci_execution": false,
+  "main_changed": false,
+  "submitted": false
+}

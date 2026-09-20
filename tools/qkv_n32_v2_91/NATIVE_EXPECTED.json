@@ -1,0 +1,81 @@
+{
+  "method": "Pinned create_binder/binder/_get_config and CUDAOptions/parse_options executed from primary AST without compiler/Torch/GPU import. Native worker must match every field before compiling.",
+  "jit_source_sha256": "7542bf9254646331ed90ce16fe1bfb2caf87d77d748d84396aab44c8027d508b",
+  "backend_source_sha256": "a979896b9c0acfd41dd953b90bdc4b10968f7c0b45a286eae3f829aaddb2bb55",
+  "kernel_source_sha256": "56d769ed8179200e0821fa29f1b0acd6a01c38822d3d7e4595f3f4dc6e75a828",
+  "launches": [
+    {
+      "case": "qkv_n32_v2_m64_n32_k64_w4_s3",
+      "kernel": "_qkv_n32_kernel",
+      "native_key_sha256": "6ef56b042950125baca90d348da046587d9558f7174a73c8f77970f69d277565",
+      "signature": {
+        "a_ptr": "*bf16",
+        "w_ptr": "*bf16",
+        "c_ptr": "*bf16",
+        "M": "i32",
+        "N": "i32",
+        "K": "i32",
+        "stride_am": "i32",
+        "stride_wn": "i32"
+      },
+      "constants": {
+        "BLOCK_M": 64,
+        "BLOCK_N": 32,
+        "BLOCK_K": 64
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 4,
+        "num_stages": 3,
+        "debug": null
+      },
+      "parsed_options": {
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 3,
+        "maxnreg": null,
+        "cluster_dims": [
+          1,
+          1,
+          1
+        ],
+        "ptx_version": null,
+        "enable_fp_fusion": true,
+        "allow_fp8e4nv": true,
+        "allow_fp8e4b15": false,
+        "default_dot_input_precision": "tf32",
+        "allowed_dot_input_precisions": [
+          "tf32",
+          "tf32x3",
+          "ieee"
+        ],
+        "max_num_imprecise_acc_default": 1073741824,
+        "extern_libs": [
+          [
+            "libdevice",
+            "<TRITON_LIBDEVICE>"
+          ]
+        ],
+        "debug": null,
+        "backend_name": "cuda"
+      }
+    }
+  ],
+  "compile_calls": 0,
+  "gpu_execution": false
+}

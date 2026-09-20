@@ -1,0 +1,249 @@
+{
+  "checks": [
+    {
+      "name": "exact91 parity, unchanged selector policy, single-loop device source, bounds and negative controls",
+      "passed": true
+    },
+    {
+      "name": "faster candidate selected",
+      "passed": true,
+      "selection": "candidate",
+      "launches": 108,
+      "timing_order": [
+        "original",
+        "candidate",
+        "candidate",
+        "original"
+      ]
+    },
+    {
+      "name": "one order misses margin",
+      "passed": true,
+      "selection": "original",
+      "launches": 108,
+      "timing_order": [
+        "original",
+        "candidate",
+        "candidate",
+        "original"
+      ]
+    },
+    {
+      "name": "exact 3 percent insufficient",
+      "passed": true,
+      "selection": "original",
+      "launches": 108,
+      "timing_order": [
+        "original",
+        "candidate",
+        "candidate",
+        "original"
+      ]
+    },
+    {
+      "name": "slower candidate",
+      "passed": true,
+      "selection": "original",
+      "launches": 108,
+      "timing_order": [
+        "original",
+        "candidate",
+        "candidate",
+        "original"
+      ]
+    },
+    {
+      "name": "pointwise near-zero rejection",
+      "passed": true,
+      "selection": "original",
+      "launches": 1,
+      "timing_order": []
+    },
+    {
+      "name": "candidate NaN",
+      "passed": true,
+      "selection": "original",
+      "launches": 1,
+      "timing_order": []
+    },
+    {
+      "name": "candidate infinity",
+      "passed": true,
+      "selection": "original",
+      "launches": 1,
+      "timing_order": []
+    },
+    {
+      "name": "reference NaN",
+      "passed": true,
+      "selection": "original",
+      "launches": 1,
+      "timing_order": []
+    },
+    {
+      "name": "residual mismatch",
+      "passed": true,
+      "selection": "original",
+      "launches": 1,
+      "timing_order": []
+    },
+    {
+      "name": "input mutation",
+      "passed": true,
+      "selection": "original",
+      "launches": 36,
+      "timing_order": []
+    },
+    {
+      "name": "candidate error drained fallback",
+      "passed": true,
+      "selection": "original",
+      "launches": 1,
+      "timing_order": []
+    },
+    {
+      "name": "timer error drained fallback",
+      "passed": true,
+      "selection": "original",
+      "launches": 36,
+      "timing_order": [
+        "original"
+      ]
+    },
+    {
+      "name": "invalid timing",
+      "passed": true,
+      "selection": "original",
+      "launches": 72,
+      "timing_order": [
+        "original",
+        "candidate"
+      ]
+    },
+    {
+      "name": "admission below12s",
+      "passed": true,
+      "selection": "original",
+      "launches": 0,
+      "timing_order": []
+    },
+    {
+      "name": "admission NaN",
+      "passed": true,
+      "selection": "original",
+      "launches": 0,
+      "timing_order": []
+    },
+    {
+      "name": "forced cuBLAS",
+      "passed": true,
+      "selection": "original",
+      "launches": 0,
+      "timing_order": []
+    },
+    {
+      "name": "norm mode optout",
+      "passed": true,
+      "selection": "original",
+      "launches": 0,
+      "timing_order": []
+    },
+    {
+      "name": "bad alignment",
+      "passed": true,
+      "selection": "original",
+      "launches": 0,
+      "timing_order": []
+    },
+    {
+      "name": "bad layout",
+      "passed": true,
+      "selection": "original",
+      "launches": 0,
+      "timing_order": []
+    },
+    {
+      "name": "wrong device",
+      "passed": true,
+      "selection": "original",
+      "launches": 0,
+      "timing_order": []
+    },
+    {
+      "name": "incomplete model",
+      "passed": true,
+      "selection": "original",
+      "launches": 0,
+      "timing_order": []
+    },
+    {
+      "name": "expiry during validation",
+      "passed": true,
+      "selection": "original",
+      "launches": 1,
+      "timing_order": []
+    },
+    {
+      "name": "reserve expires after first timing",
+      "passed": true,
+      "selection": "original",
+      "launches": 36,
+      "timing_order": [
+        "original"
+      ]
+    },
+    {
+      "name": "reserve expires after final timing",
+      "passed": true,
+      "selection": "original",
+      "launches": 108,
+      "timing_order": [
+        "original",
+        "candidate",
+        "candidate",
+        "original"
+      ]
+    },
+    {
+      "name": "deadline expires after final timing",
+      "passed": true,
+      "selection": "original",
+      "launches": 108,
+      "timing_order": [
+        "original",
+        "candidate",
+        "candidate",
+        "original"
+      ]
+    },
+    {
+      "name": "actual timer retains 39 exposed allocations through drains",
+      "passed": true
+    },
+    {
+      "name": "actual timer retains 78 exposed allocations through drains",
+      "passed": true
+    },
+    {
+      "name": "inner failed drain quarantines owner graph and bypasses Exception",
+      "passed": true
+    },
+    {
+      "name": "final failed drain quarantines owner graph and bypasses Exception",
+      "passed": true
+    },
+    {
+      "name": "capture no-op never synchronizes",
+      "passed": true
+    },
+    {
+      "name": "partial allocation error retains first input through confirmed drain",
+      "passed": true
+    }
+  ],
+  "count": 32,
+  "all_passed": true,
+  "gpu_execution": false,
+  "triton_compilation": false,
+  "limits": "CPU mocks verify actual host dispatch, policy and ownership; BF16 device correctness/resources/performance remain unmeasured."
+}

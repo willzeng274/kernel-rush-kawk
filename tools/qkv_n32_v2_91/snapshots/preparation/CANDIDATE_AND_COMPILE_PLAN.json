@@ -1,0 +1,31 @@
+{
+  "status": "PREPARED_UNEXECUTED_REQUIRES_SEPARATE_ROOT_REVIEW",
+  "candidate": "krxfty_qkv_n32_v2_on91",
+  "base_revision": 91,
+  "base_commit": "60956a2979216d7791c57b3030534288d13c01df",
+  "replacement_for": "Original native QKV N32 has unproven stage0 overwrite before final WGMMA drain.",
+  "kernel": {
+    "name": "_qkv_n32_kernel",
+    "M": 64,
+    "N": 6144,
+    "K": 2560,
+    "BLOCK_M": 64,
+    "BLOCK_N": 32,
+    "BLOCK_K": 64,
+    "num_warps": 4,
+    "num_stages": 3,
+    "grid": [
+      192
+    ],
+    "k_iterations": 40,
+    "one_tile_per_cta": true,
+    "persistent_outer_loop": false,
+    "norm": false,
+    "split_k": false,
+    "output_cast": "one final fp32 to BF16"
+  },
+  "cases": 1,
+  "compile_calls": 0,
+  "gpu_execution": false,
+  "performance_measured": false
+}
