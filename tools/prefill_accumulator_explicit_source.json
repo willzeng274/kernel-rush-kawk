@@ -1,0 +1,7 @@
+{
+  "variant": "explicit",
+  "compiler_module_sha256": "889c723b0d023ba9fc28859e72da20c76b7af4d0caabf182e3262105869570f3",
+  "function_sha256": "3725bdeddaaa485b86bd820aea10cc847b6b36d6cf933299d2401afa8cdb963c",
+  "cuda_execution": false,
+  "scope": "Only the two explicit-accumulator syntax replacements; fixed geometry/options/signatures"
+}
