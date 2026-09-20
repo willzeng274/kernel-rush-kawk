@@ -1,34 +1,26 @@
-"""Research-only 12-node two-dimensional Lookahead device primitive probe.
+"""Exact chain KV/attention for independent sequence lengths.
 
-Not a production engine. QKV grid=(B*12,40), attention grid=(B,16,SPLITS),
-compaction grid=(B,8,12). Attention has two groups of eight nodes per KV head,
-each 32 query rows; the second group masks nodes 12..15. Each nonempty query group reads committed K/V independently; empty groups
-mask all K/V loads while retaining the same output arithmetic. No GPU correctness or speed claim.
-W must be 12. Logical depths and ancestor masks are static for startup and
-steady state; startup activates nodes 0,1,2,3,7 (mask143). Per-request host
-metadata must ensure each active position is in capacity and has active parents.
-Original BF16 arithmetic and all attention reductions match the prior W8 tree.
+K/V main [B,8,CAP,128], scratch [B,8,W,128]; flattened activations [B*W,...].
+META rows contain [W tokens, consumed length, active chain rows]. All pointer
+products for cache/position use int64. W in {1,4}; each attention CTA has only
+16 query rows, independent of batch, avoiding Triton 3.1's M64 MMA path.
 """
 import triton
 import triton.language as tl
 
 
 @triton.jit
-def lookahead_qkv_kernel(QKV, QW, KW, COS, SIN, META, Q, SK, SV,
+def chain_qkv_kernel(QKV, QW, KW, COS, SIN, META, Q, SK, SV,
                      CAP: tl.constexpr, W: tl.constexpr, EPS: tl.constexpr,
                      D: tl.constexpr = 128):
-    tl.static_assert(W == 12)
     flat = tl.program_id(0).to(tl.int64)
     head = tl.program_id(1).to(tl.int64)
     b, row = flat // W, flat % W
     length = tl.load(META + b * (W + 2) + W).to(tl.int64)
     active = tl.load(META + b * (W + 2) + W + 1)
-    valid = (active & (1 << row)) != 0
-    depth = tl.where(row < 4, row,
-                     tl.where(row < 8, row - 3,
-                              tl.where(row < 10, row - 7, row - 9)))
+    valid = row < active
     # Never read past cos/sin even for inactive final rows of a finished member.
-    position = tl.where(valid, length + depth, 0)
+    position = tl.where(valid, length + row, 0)
     d = tl.arange(0, D)
     rd = (d + D // 2) % D
     if head < 32:
@@ -60,37 +52,22 @@ def lookahead_qkv_kernel(QKV, QW, KW, COS, SIN, META, Q, SK, SV,
 
 
 @triton.jit
-def lookahead_attention_kernel(Q, K, V, SK, SV, META, PART, PMAX, PSUM,
+def chain_attention_kernel(Q, K, V, SK, SV, META, PART, PMAX, PSUM,
                            CAP: tl.constexpr, W: tl.constexpr,
                            SPLITS: tl.constexpr, SCALE: tl.constexpr,
                            BLOCK_N: tl.constexpr = 256, D: tl.constexpr = 128):
-    tl.static_assert(W == 12)
     b = tl.program_id(0).to(tl.int64)
-    group = tl.program_id(1).to(tl.int64)
-    kh, query_tile = group // 2, group % 2
+    kh = tl.program_id(1).to(tl.int64)
     split = tl.program_id(2).to(tl.int64)
     length = tl.load(META + b * (W + 2) + W).to(tl.int64)
     active = tl.load(META + b * (W + 2) + W + 1)
-    r = tl.arange(0, 32)
-    row, head = query_tile * 8 + r // 4, kh * 4 + r % 4
-    # Explicit constants avoid Triton 3.1 constexpr-tuple subscripting.
-    ancestry = tl.where(row < 4, (1 << (row + 1)) - 1, 0)
-    ancestry = tl.where(row == 4, 17, ancestry)
-    ancestry = tl.where(row == 5, 35, ancestry)
-    ancestry = tl.where(row == 6, 71, ancestry)
-    ancestry = tl.where(row == 7, 143, ancestry)
-    ancestry = tl.where(row == 8, 257, ancestry)
-    ancestry = tl.where(row == 9, 769, ancestry)
-    ancestry = tl.where(row == 10, 1025, ancestry)
-    ancestry = tl.where(row == 11, 3073, ancestry)
-    tile_has_queries = (active & (255 << (query_tile * 8))) != 0
+    r = tl.arange(0, 16)
+    row, head = r // 4, kh * 4 + r % 4
     d = tl.arange(0, D)
     t = split * BLOCK_N + tl.arange(0, BLOCK_N)
     scratch_row = t - length
-    committed = (t < length) & (t < CAP) & tile_has_queries
-    safe_node = tl.maximum(0, tl.minimum(scratch_row, W - 1))
-    scratch = (tile_has_queries & (scratch_row >= 0) & (scratch_row < W)
-               & ((active & (1 << safe_node)) != 0))
+    committed = (t < length) & (t < CAP)
+    scratch = (scratch_row >= 0) & (scratch_row < active) & (t < CAP)
     q = tl.load(Q + (((b * W + row[:, None]) * 32 + head[:, None]) * D + d[None, :]),
                 row[:, None] < W, 0)
     # Select an address before loading so only one K tile is live. Loading
@@ -100,9 +77,8 @@ def lookahead_attention_kernel(Q, K, V, SK, SV, META, PART, PMAX, PSUM,
                      SK + ((b * 8 + kh) * W + scratch_row) * D)
     k = tl.load(kbase[None, :] + d[:, None], (committed | scratch)[None, :], 0)
     score = tl.dot(q, k).to(tl.float32) * SCALE
-    visible = (((active & (1 << row[:, None])) != 0)
-               & (committed[None, :] | (scratch[None, :]
-                  & ((ancestry[:, None] & (1 << safe_node[None, :])) != 0))))
+    visible = ((row[:, None] < active) & (committed[None, :] | scratch[None, :])
+               & (t[None, :] <= length + row[:, None]))
     score = tl.where(visible, score, float('-inf'))
     maximum = tl.maximum(tl.max(score, 1), -1.0e30)
     p = tl.exp(score - maximum[:, None])
@@ -120,20 +96,43 @@ def lookahead_attention_kernel(Q, K, V, SK, SV, META, PART, PMAX, PSUM,
 
 
 @triton.jit
-def lookahead_compact_kernel(SK, SV, K, V, META, PATHS,
+def chain_merge_kernel(PART, PMAX, PSUM, OUT, SPLITS: tl.constexpr,
+                       BLOCK_S: tl.constexpr, D: tl.constexpr = 128):
+    h = tl.program_id(0).to(tl.int64)
+    s = tl.arange(0, BLOCK_S)
+    d = tl.arange(0, D)
+    m = tl.load(PMAX + h * SPLITS + s, s < SPLITS, float('-inf'))
+    den = tl.load(PSUM + h * SPLITS + s, s < SPLITS, 0)
+    factor = tl.exp(m - tl.max(m, 0))
+    part = tl.load(PART + (h * SPLITS + s[:, None]) * D + d[None, :],
+                   s[:, None] < SPLITS, 0)
+    total = tl.sum(den * factor, 0)
+    result = tl.sum(part * factor[:, None], 0) / tl.maximum(total, 1.0e-20)
+    tl.store(OUT + h * D + d, result)
+
+
+@triton.jit
+def chain_compact_kernel(SK, SV, K, V, META, COUNTS,
                          CAP: tl.constexpr, W: tl.constexpr, D: tl.constexpr = 128):
-    tl.static_assert(W == 12)
     b = tl.program_id(0).to(tl.int64)
     kh = tl.program_id(1).to(tl.int64)
     row = tl.program_id(2).to(tl.int64)
     length = tl.load(META + b * (W + 2) + W).to(tl.int64)
-    node = tl.load(PATHS + b * W + row).to(tl.int64)
+    count = tl.load(COUNTS + b)
     d = tl.arange(0, D)
-    valid = (node >= 0) & (node < W) & (length + row < CAP)
-    source = ((b * 8 + kh) * W + node) * D + d
+    valid = (row < count) & (length + row < CAP)
+    source = ((b * 8 + kh) * W + row) * D + d
     target = ((b * 8 + kh) * CAP + length + row) * D + d
     key = tl.load(SK + source, valid, 0)
     value = tl.load(SV + source, valid, 0)
     tl.store(K + target, key, valid)
     tl.store(V + target, value, valid)
 
+
+@triton.jit
+def chain_ids_kernel(META, IDS, W: tl.constexpr, ROWS: tl.constexpr,
+                     BLOCK: tl.constexpr = 128):
+    flat = tl.program_id(0) * BLOCK + tl.arange(0, BLOCK)
+    b, row = flat // W, flat % W
+    token = tl.load(META + b * (W + 2) + row, flat < ROWS, 0)
+    tl.store(IDS + flat, token, flat < ROWS)

@@ -1,117 +1,111 @@
-"""Captured W1/W12 exact independent-position graphs; no optional layout tuner."""
+"""Captured W1/W4 full BF16 verifier and accepted-row compaction graphs."""
 import torch
 import triton
 from custom_kernels import embedding_norm_kernel, residual_norm_kernel, swiglu_kernel
-from lookahead_helpers import chain_ids_kernel, chain_merge_kernel
-from lookahead_kernels import lookahead_qkv_kernel, lookahead_attention_kernel, lookahead_compact_kernel
-from lookahead_single import (single_qkv_cache_kernel, single_fused_attention_kernel,
-                              single_attention_split_kernel)
-from lookahead_host import DEPTHS
+from recycled_kernels import (chain_ids_kernel, chain_qkv_kernel,
+                              chain_attention_kernel, chain_merge_kernel,
+                              chain_compact_kernel)
+from recycled_single import (single_qkv_cache_kernel, single_fused_attention_kernel,
+                             single_attention_split_kernel)
 
 
-
-class LookaheadGraph:
+class ChainGraph:
     def __init__(self, engine, width):
         self.engine, self.width = engine, int(width)
-        assert self.width in (1, 12)
-        self.control = engine.la_control
-        self.control.register(self)  # Before ANY optional asynchronous allocation.
+        if self.width not in (1,4):
+            raise ValueError("fixed W1/W4 only")
+        self.control = engine.suffix_control
+        self.control.register(self)  # Before ANY optional asynchronous operation.
+        self.allocated, self.current, self.capturing = [], None, False
         self.control.live()
-        self.current = None
-        self.allocated = []
-        self.capturing = False
         self.single_fused = self.width == 1 and engine.fused_cache_attention.enabled
         b, w, device = engine.batch, self.width, engine.ids.device
-        self.rows = b * w
-        self.splits = triton.cdiv(engine.capacity + 11, 128) if w == 12 else engine.splits
-        def empty(*shape, dtype=torch.bfloat16):
+        self.rows = b*w
+        def empty(*shape, dtype=torch.bfloat16, **options):
             self.control.live()
-            value = torch.empty(shape, dtype=dtype, device=device)
+            value = torch.empty(shape,dtype=dtype,**options)
             self.allocated.append(value)
             return value
-        self.meta = torch.zeros((b, w + 2), device=device, dtype=torch.int64)
-        self.host_meta = torch.empty((b, w + 2), dtype=torch.int64, pin_memory=True)
-        self.paths = torch.full((b, w), -1, device=device, dtype=torch.int64)
-        self.host_paths = torch.empty((b, w), dtype=torch.int64, pin_memory=True)
-        # Persistent views avoid dozens of Python-to-Torch scalar dispatches
-        # per round. They share the existing pinned tensor allocations.
-        self.host_meta_array = self.host_meta.numpy()
-        self.host_paths_array = self.host_paths.numpy()
-        self.inputs = empty(self.rows, dtype=torch.int64)
-        self.output = empty(b, w, dtype=torch.int64)
-        self.hidden = empty(self.rows, engine.h)
-        self.normalized = empty(self.rows, engine.h)
-        self.qkv = empty(self.rows, 6144)
-        self.query = empty(self.rows, 32, 128)
-        self.attention = empty(self.rows, 4096)
-        self.branch = empty(self.rows, engine.h)
-        self.gateup = empty(self.rows, 2 * engine.i)
-        self.intermediate = empty(self.rows, engine.i)
-        self.logits = empty(self.rows, engine.model.config.vocab_size)
-        self.partial = empty(self.rows * 32, self.splits, 128, dtype=torch.float32)
-        self.pmax = empty(self.rows * 32, self.splits, dtype=torch.float32)
-        self.psum = empty(self.rows * 32, self.splits, dtype=torch.float32)
-        self.keys = [empty(b, 8, w, 128) for _ in engine.layers]
-        self.values = [empty(b, 8, w, 128) for _ in engine.layers]
+        self.meta = empty(b,w+2,dtype=torch.int64,device=device)
+        self.meta.zero_()
+        self.host_meta = empty(b,w+2,dtype=torch.int64,pin_memory=True)
+        self.counts = empty(b,dtype=torch.int64,device=device)
+        self.counts.zero_()
+        self.host_counts = empty(b,dtype=torch.int64,pin_memory=True)
+        self.host_meta_array, self.host_counts_array = self.host_meta.numpy(), self.host_counts.numpy()
+        self.inputs = empty(self.rows,dtype=torch.int64,device=device)
+        self.output = empty(b,w,dtype=torch.int64,device=device)
+        self.hidden = empty(self.rows,engine.h,device=device)
+        self.normalized = empty(self.rows,engine.h,device=device)
+        self.qkv = empty(self.rows,6144,device=device)
+        self.query = empty(self.rows,32,128,device=device)
+        self.attention = empty(self.rows,4096,device=device)
+        self.branch = empty(self.rows,engine.h,device=device)
+        self.gateup = empty(self.rows,2*engine.i,device=device)
+        self.intermediate = empty(self.rows,engine.i,device=device)
+        self.logits = empty(self.rows,engine.model.config.vocab_size,device=device)
+        self.partial = empty(self.rows*32,engine.splits,128,dtype=torch.float32,device=device)
+        self.pmax = empty(self.rows*32,engine.splits,dtype=torch.float32,device=device)
+        self.psum = empty(self.rows*32,engine.splits,dtype=torch.float32,device=device)
+        self.keys = [empty(b,8,w,128,device=device) for _ in engine.layers]
+        self.values = [empty(b,8,w,128,device=device) for _ in engine.layers]
         self.output_flat = self.output.view(-1)
-        self.meta[:, w].fill_(engine.prompt)
-        self.meta[:, w + 1].fill_(1)
-        self.stream = torch.cuda.Stream(device=device)
-        # The engine controller retains this partially built object on any
-        # construction failure; caller recovery drains before releasing it.
-        self.control.drain()
+        self.meta[:,w].fill_(engine.prompt)
+        self.meta[:,w+1].fill_(w)
         self.control.live()
+        self.stream = torch.cuda.Stream(device=device)
+        self.control.drain()
         with torch.cuda.stream(self.stream):
             self._verify()
             self._compact()
         self.control.wait(self.stream.synchronize)
         self.control.live()
         self.graph = torch.cuda.CUDAGraph()
-        self.control.live()
+        self.control.live()  # Constructor may be nonpreemptible.
         self.capturing = True
         try:
-            with torch.cuda.graph(self.graph, stream=self.stream):
+            with torch.cuda.graph(self.graph,stream=self.stream):
                 self._verify()
         finally:
             self.capturing = False
         self.control.live()
         self.compact_graph = None
-        if w == 12:
+        if w == 4:
+            self.control.live()
             self.compact_graph = torch.cuda.CUDAGraph()
             self.control.live()
             self.capturing = True
             try:
-                with torch.cuda.graph(self.compact_graph, stream=self.stream):
+                with torch.cuda.graph(self.compact_graph,stream=self.stream):
                     self._compact()
             finally:
                 self.capturing = False
-        self.control.live()
+            self.control.live()
         self.graph.replay()
         if self.compact_graph is not None:
             self.compact_graph.replay()
         self.control.drain()
-        self.control.live()  # Post-constructor/last-nonpreemptible-call guard.
+        self.control.live()
+
+    def _check(self):
+        if not self.capturing:
+            self.control.live()
 
     def _linear(self, family, index, x, weight, out):
         self._check()
         # W1 reuses accepted native projection choices at the actual batch.
-        # W12 is a true M=B*12 matmul, not B unrelated one-row weight scans.
+        # W4 is a true M=B*4 matmul, not B unrelated one-row weight scans.
         if self.width == 1:
             self.engine.native_layout.run(family, index, x, weight, out)
         else:
             torch.mm(x, weight.t(), out=out)
         self._check()
 
-    def _check(self):
-        if not self.capturing:
-            self.control.live()
-
     def _verify(self):
         self._check()
         e, rows, w = self.engine, self.rows, self.width
         chain_ids_kernel[(triton.cdiv(rows, 128),)](
-            self.meta, self.inputs, w, rows,
-            num_warps=4, num_stages=3, enable_fp_fusion=True)
+            self.meta, self.inputs, w, rows, num_warps=4)
         embedding_norm_kernel[(rows,)](
             self.inputs, e.base.embed_tokens.weight, e.layers[0].input_layernorm.weight,
             self.hidden, self.normalized, e.h, e.eps, 4096,
@@ -136,11 +130,10 @@ class LookaheadGraph:
                         e.keys[index], e.values[index], e.capacity, e.eps,
                         num_warps=4, enable_fp_fusion=False)
                 else:
-                    lookahead_qkv_kernel[(rows, 40)](
+                    chain_qkv_kernel[(rows, 40)](
                         self.qkv, a.q_norm.weight, a.k_norm.weight, e.cos, e.sin,
                         self.meta, self.query, self.keys[index], self.values[index],
-                        e.capacity, w, e.eps, num_warps=4, num_stages=3, enable_fp_fusion=False)
-                self._check()
+                        e.capacity, w, e.eps, num_warps=4, enable_fp_fusion=False)
                 if w == 1:
                     # The preceding QKV launch completed the active root write.
                     # Read the now-committed current slot directly, exactly as
@@ -150,16 +143,13 @@ class LookaheadGraph:
                         self.partial, self.pmax, self.psum,
                         e.capacity, e.splits, 128 ** -0.5, num_warps=4, num_stages=1)
                 else:
-                    lookahead_attention_kernel[(e.batch, 16, self.splits)](
+                    chain_attention_kernel[(e.batch, 8, e.splits)](
                         self.query, e.keys[index], e.values[index], self.keys[index], self.values[index],
                         self.meta, self.partial, self.pmax, self.psum,
-                        e.capacity, w, self.splits, 128 ** -0.5, BLOCK_N=128,
-                        num_warps=8, num_stages=1, enable_fp_fusion=True)
-                self._check()
+                        e.capacity, w, e.splits, 128 ** -0.5, num_warps=8, num_stages=1)
                 chain_merge_kernel[(rows * 32,)](
                     self.partial, self.pmax, self.psum, self.attention,
-                    self.splits, triton.next_power_of_2(self.splits),
-                    num_warps=4, num_stages=3, enable_fp_fusion=True)
+                    e.splits, triton.next_power_of_2(e.splits), num_warps=4)
             self._linear("output", index, self.attention, a.o_proj.weight, self.branch)
             residual_norm_kernel[(rows,)](
                 self.branch, self.hidden, layer.post_attention_layernorm.weight,
@@ -178,48 +168,48 @@ class LookaheadGraph:
         torch.argmax(self.logits, dim=-1, out=self.output_flat)
 
     def _compact(self):
+        self._check()
         if self.width == 1:
             return  # Every active W1 root wrote its own committed main slot.
         e, w = self.engine, self.width
         for sk, sv, k, v in zip(self.keys, self.values, e.keys, e.values):
             self._check()
-            lookahead_compact_kernel[(e.batch, 8, w)](
-                sk, sv, k, v, self.meta, self.paths, e.capacity, w,
-                num_warps=4, num_stages=3, enable_fp_fusion=True)
+            chain_compact_kernel[(e.batch, 8, w)](
+                sk, sv, k, v, self.meta, self.counts, e.capacity, w, num_warps=4)
 
     def replay(self, inputs, lengths, active):
         self.control.healthy()
-        e, w = self.engine, self.width
+        e,w = self.engine,self.width
+        if self.current is not None:
+            raise ValueError("previous replay must compact or be explicitly discarded")
         if not (len(inputs) == len(lengths) == len(active) == e.batch):
             raise ValueError("metadata batch mismatch")
-        for nodes, length, mask in zip(inputs, lengths, active):
-            if len(nodes) != w or not 0 <= mask < (1 << w) or not 0 <= length < e.capacity:
-                raise ValueError("invalid verifier metadata")
-            if any(type(t) is not int or not 0 <= t < e.model.config.vocab_size for t in nodes):
+        for row,length,count in zip(inputs,lengths,active):
+            if (len(row) != w or type(length) is not int or type(count) is not int or
+                    not 0 <= length < e.capacity or not 0 <= count <= w or
+                    length+count > e.capacity):
+                raise ValueError("invalid active positions")
+            if any(type(y) is not int or not 0 <= y < e.model.config.vocab_size for y in row):
                 raise ValueError("invalid embedding ID")
-            if any(mask & (1 << row) and length + (DEPTHS[row] if w == 12 else 0) >= e.capacity
-                   for row in range(w)):
-                raise ValueError("active position exceeds capacity")
-        self.host_meta_array[:] = [(*row, int(lengths[b]), int(active[b]))
-                                   for b, row in enumerate(inputs)]
-        # Blocking copy intentionally establishes pinned-host reuse safety.
-        # Complete-round admission charges this synchronization.
-        self.meta.copy_(self.host_meta, non_blocking=False)
+        self.host_meta_array[:] = [(*row,lengths[b],active[b]) for b,row in enumerate(inputs)]
+        self.meta.copy_(self.host_meta,non_blocking=False)
         self.graph.replay()
-        self.current = (tuple(lengths), tuple(active))
+        self.current = (tuple(lengths),tuple(active))
 
-    def compact(self, paths):
+    def compact(self, counts):
         self.control.healthy()
-        if self.current is None or len(paths) != self.engine.batch:
-            raise ValueError("compaction requires the current verifier batch")
-        legal = ((), (0,)) if self.width == 1 else ((), (0,), (0,8), (0,8,9), (0,10), (0,10,11))
-        for b, path in enumerate(paths):
-            if tuple(path) not in legal or any(not self.current[1][b] & (1 << j) for j in path):
-                raise ValueError("invalid or inactive compaction path")
-            if self.current[0][b] + len(path) > self.engine.capacity:
-                raise ValueError("compaction exceeds capacity")
-        if self.width == 12:
-            self.host_paths_array[:] = [tuple(path) + (-1,) * (12 - len(path)) for path in paths]
-            self.paths.copy_(self.host_paths, non_blocking=False)
+        if self.current is None or len(counts) != self.engine.batch:
+            raise ValueError("compaction requires current replay")
+        if any(type(c) is not int or not 0 <= c <= self.current[1][b]
+               for b,c in enumerate(counts)):
+            raise ValueError("invalid compaction count")
+        if self.width == 4:
+            self.host_counts_array[:] = counts
+            self.counts.copy_(self.host_counts,non_blocking=False)
             self.compact_graph.replay()
+        self.current = None
+
+    def discard(self):
+        # Warmup reference checks only; no scratch is committed.
+        self.control.drain()
         self.current = None
