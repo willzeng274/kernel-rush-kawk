@@ -1,7 +1,9 @@
-# Public EngineKernel with corrected prefill and whole-path selection
+# Public EngineKernel with corrected captured prefill and optional Triton attention
 
-Derived from https://github.com/jeojdi1/EngineKernel/tree/51f8ee511c372edcfade2edd71f53cf79a0bf02f/engine . All original authorship and kernel comments remain. ek_kernels.py, ek_model.py and ek_probe.py are byte-identical to that public revision.
+The complete engine derives from public EngineKernel commit 51f8ee511c372edcfade2edd71f53cf79a0bf02f: https://github.com/jeojdi1/EngineKernel/tree/51f8ee511c372edcfade2edd71f53cf79a0bf02f/engine . Original authorship and kernel comments are retained.
 
-The corrected captured prefill uses a private graph pool and retains its position input. That complete engine passed official submission70 at1001.5tokens/second, following the unchanged public engine’s986.3result in69.
+Our accepted submission #70 scored 1001.5 tok/s by enabling captured prefill with a private graph pool and retaining the position input. This revision preserves that complete engine and its speculation/decode paths. The whole-model selector from #71 (982.5 tok/s) is removed.
 
-This revision adds ek_select.py and graph-construction hooks. During warmup it compares complete fixed-prefix decode/verification across the already present cuBLAS, unsplit Triton and split/fused Triton paths. It retains the incumbent unless a challenger is at least2%faster, uses independent temporary graph pools and restores flags after production capture. Device kernels, weight layouts, speculation and prefill arithmetic are unchanged. GPU correctness and speed are evaluated by the official run; local checks cover source and host policy only.
+The only new device function is the byte-identical causal GQA prefill kernel from public commit 7f18415792ec731a1b86518a745dd9bc36ef80bb: https://github.com/jeojdi1/EngineKernel/commit/7f18415792ec731a1b86518a745dd9bc36ef80bb . It writes projection-ready rows directly. Added host guards restrict supported layouts. The existing cuDNN route stays first choice; padded attention and unsupported inputs keep the previous path.
+
+A separate, once-only child probe checks this optional kernel against PyTorch on full/partial tiles with actual strides and poisoned unused cache slots. It has a 45-second timeout and disables only optional prefill on failure. This probe runs during setup; it is not evidence of full-model correctness until the official run passes. No diagnostics about hidden workloads, unrelated upstream fusion changes, or runtime downloads are included.

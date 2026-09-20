@@ -80,7 +80,6 @@ if not _probe_triton_out_of_process():
 import ek_kernels  # noqa: E402
 from ek_kernels import _next_pow2, group_pad, plan_splits  # noqa: E402
 from ek_model import Qwen3  # noqa: E402
-from ek_select import capture_projection_path  # noqa: E402
 
 MAX_STEPS = 4096
 # Decode steps queued on the GPU ahead of the token being read back. Deeper
@@ -191,6 +190,7 @@ class _FastEngine:
         # compile-and-run probe: decides Triton kernels vs the pure-torch path
         self.triton = ek_kernels.probe_triton() if self.cuda else False
         self.model = Qwen3(model_path, self.device)
+        self._prefill_probe_done = False
         cfg = self.model.cfg
         self.n_kv = cfg.num_kv_heads
         self.head_dim = cfg.head_dim
@@ -433,7 +433,7 @@ class _FastEngine:
     def _spec_bucket(self, need: int) -> int:
         return -(-need // 256) * 256
 
-    def _get_spec_graph(self, b: int, need: int, selector_inputs=None):
+    def _get_spec_graph(self, b: int, need: int):
         bucket = self._spec_bucket(need)
         key = ("spec", b, bucket)
         if key not in self.graphs and self.triton:
@@ -447,12 +447,10 @@ class _FastEngine:
                 self.model.use_gemv = False
                 self.model._gemv_choice = {}
         if key not in self.graphs:
-            self.graphs[key] = capture_projection_path(
-                self, b, bucket, _spec_q(b), selector_inputs,
-                self._capture_spec, _T_IMPORT + 210.0)
+            self.graphs[key] = self._capture_spec(b, bucket)
         return self.graphs[key]
 
-    def _get_graph(self, b: int, total: int, selector_inputs=None):
+    def _get_graph(self, b: int, total: int):
         bucket = self._spec_bucket(total)
         key = (b, bucket)
         if key not in self.graphs and self.triton:
@@ -465,10 +463,17 @@ class _FastEngine:
                 self.model.use_gemv = False
                 self.model._gemv_choice = {}
         if key not in self.graphs:
-            self.graphs[key] = capture_projection_path(
-                self, b, bucket, 0, selector_inputs,
-                self._capture, _T_IMPORT + 210.0)
+            self.graphs[key] = self._capture(b, bucket)
         return self.graphs[key]
+
+    def _ensure_prefill_probe(self):
+        if (self._prefill_probe_done or not self.cuda or not self.triton
+                or not self.model.prefill_triton or not ek_kernels.has_triton()):
+            return
+        self._prefill_probe_done = True
+        if not _child_ok(["prefill", self.n_kv, self.model.cfg.num_heads, self.head_dim], timeout=45):
+            # The optional kernel must never disable the accepted decode kernels.
+            self.model.prefill_triton = False
 
     def _first_token(self, ids, pos, b, s, bias):
         """Prefill and return the first output token, [B] on device.
@@ -478,6 +483,7 @@ class _FastEngine:
         GPU work is unchanged; what goes away is ~10 ms of host launch overhead
         per request, which is 7% of a batch-1 512->32 workload.
         """
+        self._ensure_prefill_probe()
         kv_k = [t[:b] for t in self.k_cache]
         kv_v = [t[:b] for t in self.v_cache]
         graphable = (PREFILL_GRAPH and bias is None and b * s <= PREFILL_TOKENS)
@@ -523,6 +529,7 @@ class _FastEngine:
 
     def _prefill(self, ids, pos, k_cache, v_cache, bias):
         """Prefill in row groups so peak activation memory does not grow with batch."""
+        self._ensure_prefill_probe()
         b, s = ids.shape
         rows = max(1, PREFILL_TOKENS // max(s, 1))
         if rows >= b:
@@ -596,7 +603,7 @@ class _FastEngine:
 
         self._ensure_cache(b, total)
         self._ensure_host(b)
-        g = self._get_graph(b, total, (ids, pos, pad, s, bias))
+        g = self._get_graph(b, total)
 
         first = self._first_token(ids, pos, b, s, bias)
 
@@ -639,7 +646,7 @@ class _FastEngine:
         try:
             self._ensure_cache(b, need)
             self._ensure_host(b)
-            g = self._get_spec_graph(b, need, (ids, pos, pad, s, bias))
+            g = self._get_spec_graph(b, need)
         except Exception:
             # could not build a graph for this shape: finish the request on the
             # plain path rather than fail the whole run

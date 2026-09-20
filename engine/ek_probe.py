@@ -7,6 +7,7 @@ child's exit code turns all of those into a plain "no".
 
     ek_probe.py basic
     ek_probe.py shape <batch> <nq> <bucket> <n_kv> <n_heads> <head_dim>
+    ek_probe.py prefill <n_kv> <n_heads> <head_dim>
 """
 import sys
 
@@ -27,6 +28,35 @@ def basic() -> int:
     _bump[(1,)](x, N=64)
     torch.cuda.synchronize()
     return 0 if float(x.sum().item()) == 64.0 else 3
+
+
+def prefill(n_kv, n_heads, d) -> int:
+    """Optional kernel only: full/tail tiles, actual strides, poisoned suffix."""
+    import ek_kernels as K
+    from torch.nn.attention import SDPBackend, sdpa_kernel
+
+    b, capacity = 2, 256
+    for s in (128, 130):
+        qkv = torch.randn(b * s, (n_heads + 2 * n_kv) * d,
+                          device="cuda", dtype=torch.bfloat16)
+        q = qkv[:, :n_heads * d].view(b, s, n_heads, d).transpose(1, 2)
+        kc = torch.full((b, n_kv, capacity, d), float("nan"),
+                        device="cuda", dtype=torch.bfloat16)
+        vc = torch.full_like(kc, float("nan"))
+        k, v = kc[:, :, :s], vc[:, :, :s]
+        k.copy_(torch.randn_like(k))
+        v.copy_(torch.randn_like(v))
+        out = K.attn_prefill(q, k, v, d ** -0.5)
+        if out is None:
+            return 4
+        with sdpa_kernel(SDPBackend.FLASH_ATTENTION):
+            ref = torch.nn.functional.scaled_dot_product_attention(
+                q, k, v, is_causal=True, scale=d ** -0.5, enable_gqa=True)
+        ref = ref.transpose(1, 2).reshape(b * s, n_heads * d)
+        torch.cuda.synchronize()
+        if not torch.isfinite(out).all() or not torch.allclose(out, ref, atol=0.02, rtol=0.02):
+            return 4
+    return 0
 
 
 def shape(b, nq, bucket, n_kv, n_heads, d) -> int:
@@ -107,4 +137,6 @@ def shape(b, nq, bucket, n_kv, n_heads, d) -> int:
 
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "basic"
+    if mode == "prefill":
+        sys.exit(prefill(*[int(a) for a in sys.argv[2:5]]))
     sys.exit(basic() if mode == "basic" else shape(*[int(a) for a in sys.argv[2:8]]))
