@@ -2,8 +2,8 @@
 
 Not a production engine. QKV grid=(B*12,40), attention grid=(B,16,SPLITS),
 compaction grid=(B,8,12). Attention has two groups of eight nodes per KV head,
-each 32 query rows; the second group masks nodes 12..15. This repeats the
-committed K/V read for each query group. No GPU correctness or speed claim.
+each 32 query rows; the second group masks nodes 12..15. Each nonempty query group reads committed K/V independently; empty groups
+mask all K/V loads while retaining the same output arithmetic. No GPU correctness or speed claim.
 W must be 12. Logical depths and ancestor masks are static for startup and
 steady state; startup activates nodes 0,1,2,3,7 (mask143). Per-request host
 metadata must ensure each active position is in capacity and has active parents.
@@ -24,10 +24,9 @@ def lookahead_qkv_kernel(QKV, QW, KW, COS, SIN, META, Q, SK, SV,
     length = tl.load(META + b * (W + 2) + W).to(tl.int64)
     active = tl.load(META + b * (W + 2) + W + 1)
     valid = (active & (1 << row)) != 0
-    DEPTHS: tl.constexpr = (0, 1, 2, 3, 1, 2, 3, 4, 1, 2, 1, 2)
-    depth = tl.full((), 0, tl.int64)
-    for node in tl.static_range(12):
-        depth = tl.where(row == node, DEPTHS[node], depth)
+    depth = tl.where(row < 4, row,
+                     tl.where(row < 8, row - 3,
+                              tl.where(row < 10, row - 7, row - 9)))
     # Never read past cos/sin even for inactive final rows of a finished member.
     position = tl.where(valid, length + depth, 0)
     d = tl.arange(0, D)
@@ -74,16 +73,23 @@ def lookahead_attention_kernel(Q, K, V, SK, SV, META, PART, PMAX, PSUM,
     active = tl.load(META + b * (W + 2) + W + 1)
     r = tl.arange(0, 32)
     row, head = query_tile * 8 + r // 4, kh * 4 + r % 4
-    ANCESTORS: tl.constexpr = (1, 3, 7, 15, 17, 35, 71, 143, 257, 769, 1025, 3073)
-    ancestry = tl.full((32,), 0, tl.int64)
-    for node in tl.static_range(12):
-        ancestry = tl.where(row == node, ANCESTORS[node], ancestry)
+    # Explicit constants avoid Triton 3.1 constexpr-tuple subscripting.
+    ancestry = tl.where(row < 4, (1 << (row + 1)) - 1, 0)
+    ancestry = tl.where(row == 4, 17, ancestry)
+    ancestry = tl.where(row == 5, 35, ancestry)
+    ancestry = tl.where(row == 6, 71, ancestry)
+    ancestry = tl.where(row == 7, 143, ancestry)
+    ancestry = tl.where(row == 8, 257, ancestry)
+    ancestry = tl.where(row == 9, 769, ancestry)
+    ancestry = tl.where(row == 10, 1025, ancestry)
+    ancestry = tl.where(row == 11, 3073, ancestry)
+    tile_has_queries = (active & (255 << (query_tile * 8))) != 0
     d = tl.arange(0, D)
     t = split * BLOCK_N + tl.arange(0, BLOCK_N)
     scratch_row = t - length
-    committed = (t < length) & (t < CAP) & (active != 0)
+    committed = (t < length) & (t < CAP) & tile_has_queries
     safe_node = tl.maximum(0, tl.minimum(scratch_row, W - 1))
-    scratch = ((scratch_row >= 0) & (scratch_row < W)
+    scratch = (tile_has_queries & (scratch_row >= 0) & (scratch_row < W)
                & ((active & (1 << safe_node)) != 0))
     q = tl.load(Q + (((b * W + row[:, None]) * 32 + head[:, None]) * D + d[None, :]),
                 row[:, None] < W, 0)
