@@ -35,7 +35,8 @@ def native():
     assert os.environ.get('DISABLE_MMA_V3','0').lower() in ('','0','false')
     assert sha(Path(inspect.getsourcefile(jit)).read_bytes())==expected['jit_source_sha256']
     backend=make_backend(GPUTarget('cuda',90,32))
-    assert sha(Path(inspect.getsourcefile(type(backend))).read_bytes())==expected['backend_source_sha256']
+    backend_path=Path(backend.parse_options.__func__.__code__.co_filename)
+    assert sha(backend_path.read_bytes())==expected['backend_source_sha256']
     spec=importlib.util.spec_from_file_location('frozen_gateup_n32',HERE/'gateup_n32.py')
     module=importlib.util.module_from_spec(spec);sys.modules[spec.name]=module;spec.loader.exec_module(module)
     kernel=module.gateup_n32_kernel
