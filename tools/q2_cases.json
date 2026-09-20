@@ -1,0 +1,994 @@
+[
+  {
+    "id": "q2_draft_c26",
+    "source": "q2_kernels.py",
+    "kernel": "q2_draft",
+    "signature_types": {
+      "HIST": "*i64",
+      "LENGTH": "*i64",
+      "IDS": "*i64",
+      "INPUT": "*i64"
+    },
+    "constants": {
+      "CAP": 26,
+      "BLOCK": 32
+    },
+    "grid": [
+      1
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": true,
+    "cap": 26,
+    "width": 2
+  },
+  {
+    "id": "q2_attention_c26",
+    "source": "q2_kernels.py",
+    "kernel": "q2_attention_split",
+    "signature_types": {
+      "Q": "*bf16",
+      "K": "*bf16",
+      "V": "*bf16",
+      "POS": "*i64",
+      "PART": "*fp32",
+      "PMAX": "*fp32",
+      "PSUM": "*fp32"
+    },
+    "constants": {
+      "CAP": 26,
+      "SPLITS": 1,
+      "SCALE": 0.08838834764831845,
+      "BLOCK_N": 256,
+      "D": 128
+    },
+    "grid": [
+      8,
+      1
+    ],
+    "warps": 4,
+    "stages": 1,
+    "fusion": true,
+    "cap": 26,
+    "width": 2
+  },
+  {
+    "id": "q2_writer_c26",
+    "source": "speculative_kernels.py",
+    "kernel": "verify_qkv_rope_cache_kernel",
+    "signature_types": {
+      "QKV": "*bf16",
+      "QW": "*bf16",
+      "KW": "*bf16",
+      "COS": "*bf16",
+      "SIN": "*bf16",
+      "Q": "*bf16",
+      "KC": "*bf16",
+      "VC": "*bf16",
+      "POS": "*i64"
+    },
+    "constants": {
+      "CAP": 26,
+      "EPS": 1e-06,
+      "NQ": 32,
+      "NKV": 8,
+      "D": 128
+    },
+    "grid": [
+      2,
+      40
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": false,
+    "cap": 26,
+    "width": 2
+  },
+  {
+    "id": "q2_draft_c255",
+    "source": "q2_kernels.py",
+    "kernel": "q2_draft",
+    "signature_types": {
+      "HIST": "*i64",
+      "LENGTH": "*i64",
+      "IDS": "*i64",
+      "INPUT": "*i64"
+    },
+    "constants": {
+      "CAP": 255,
+      "BLOCK": 256
+    },
+    "grid": [
+      1
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": true,
+    "cap": 255,
+    "width": 2
+  },
+  {
+    "id": "q2_attention_c255",
+    "source": "q2_kernels.py",
+    "kernel": "q2_attention_split",
+    "signature_types": {
+      "Q": "*bf16",
+      "K": "*bf16",
+      "V": "*bf16",
+      "POS": "*i64",
+      "PART": "*fp32",
+      "PMAX": "*fp32",
+      "PSUM": "*fp32"
+    },
+    "constants": {
+      "CAP": 255,
+      "SPLITS": 1,
+      "SCALE": 0.08838834764831845,
+      "BLOCK_N": 256,
+      "D": 128
+    },
+    "grid": [
+      8,
+      1
+    ],
+    "warps": 4,
+    "stages": 1,
+    "fusion": true,
+    "cap": 255,
+    "width": 2
+  },
+  {
+    "id": "q2_writer_c255",
+    "source": "speculative_kernels.py",
+    "kernel": "verify_qkv_rope_cache_kernel",
+    "signature_types": {
+      "QKV": "*bf16",
+      "QW": "*bf16",
+      "KW": "*bf16",
+      "COS": "*bf16",
+      "SIN": "*bf16",
+      "Q": "*bf16",
+      "KC": "*bf16",
+      "VC": "*bf16",
+      "POS": "*i64"
+    },
+    "constants": {
+      "CAP": 255,
+      "EPS": 1e-06,
+      "NQ": 32,
+      "NKV": 8,
+      "D": 128
+    },
+    "grid": [
+      2,
+      40
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": false,
+    "cap": 255,
+    "width": 2
+  },
+  {
+    "id": "q2_draft_c256",
+    "source": "q2_kernels.py",
+    "kernel": "q2_draft",
+    "signature_types": {
+      "HIST": "*i64",
+      "LENGTH": "*i64",
+      "IDS": "*i64",
+      "INPUT": "*i64"
+    },
+    "constants": {
+      "CAP": 256,
+      "BLOCK": 256
+    },
+    "grid": [
+      1
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": true,
+    "cap": 256,
+    "width": 2
+  },
+  {
+    "id": "q2_attention_c256",
+    "source": "q2_kernels.py",
+    "kernel": "q2_attention_split",
+    "signature_types": {
+      "Q": "*bf16",
+      "K": "*bf16",
+      "V": "*bf16",
+      "POS": "*i64",
+      "PART": "*fp32",
+      "PMAX": "*fp32",
+      "PSUM": "*fp32"
+    },
+    "constants": {
+      "CAP": 256,
+      "SPLITS": 1,
+      "SCALE": 0.08838834764831845,
+      "BLOCK_N": 256,
+      "D": 128
+    },
+    "grid": [
+      8,
+      1
+    ],
+    "warps": 4,
+    "stages": 1,
+    "fusion": true,
+    "cap": 256,
+    "width": 2
+  },
+  {
+    "id": "q2_writer_c256",
+    "source": "speculative_kernels.py",
+    "kernel": "verify_qkv_rope_cache_kernel",
+    "signature_types": {
+      "QKV": "*bf16",
+      "QW": "*bf16",
+      "KW": "*bf16",
+      "COS": "*bf16",
+      "SIN": "*bf16",
+      "Q": "*bf16",
+      "KC": "*bf16",
+      "VC": "*bf16",
+      "POS": "*i64"
+    },
+    "constants": {
+      "CAP": 256,
+      "EPS": 1e-06,
+      "NQ": 32,
+      "NKV": 8,
+      "D": 128
+    },
+    "grid": [
+      2,
+      40
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": false,
+    "cap": 256,
+    "width": 2
+  },
+  {
+    "id": "q2_draft_c257",
+    "source": "q2_kernels.py",
+    "kernel": "q2_draft",
+    "signature_types": {
+      "HIST": "*i64",
+      "LENGTH": "*i64",
+      "IDS": "*i64",
+      "INPUT": "*i64"
+    },
+    "constants": {
+      "CAP": 257,
+      "BLOCK": 512
+    },
+    "grid": [
+      1
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": true,
+    "cap": 257,
+    "width": 2
+  },
+  {
+    "id": "q2_attention_c257",
+    "source": "q2_kernels.py",
+    "kernel": "q2_attention_split",
+    "signature_types": {
+      "Q": "*bf16",
+      "K": "*bf16",
+      "V": "*bf16",
+      "POS": "*i64",
+      "PART": "*fp32",
+      "PMAX": "*fp32",
+      "PSUM": "*fp32"
+    },
+    "constants": {
+      "CAP": 257,
+      "SPLITS": 2,
+      "SCALE": 0.08838834764831845,
+      "BLOCK_N": 256,
+      "D": 128
+    },
+    "grid": [
+      8,
+      2
+    ],
+    "warps": 4,
+    "stages": 1,
+    "fusion": true,
+    "cap": 257,
+    "width": 2
+  },
+  {
+    "id": "q2_writer_c257",
+    "source": "speculative_kernels.py",
+    "kernel": "verify_qkv_rope_cache_kernel",
+    "signature_types": {
+      "QKV": "*bf16",
+      "QW": "*bf16",
+      "KW": "*bf16",
+      "COS": "*bf16",
+      "SIN": "*bf16",
+      "Q": "*bf16",
+      "KC": "*bf16",
+      "VC": "*bf16",
+      "POS": "*i64"
+    },
+    "constants": {
+      "CAP": 257,
+      "EPS": 1e-06,
+      "NQ": 32,
+      "NKV": 8,
+      "D": 128
+    },
+    "grid": [
+      2,
+      40
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": false,
+    "cap": 257,
+    "width": 2
+  },
+  {
+    "id": "q2_draft_c544",
+    "source": "q2_kernels.py",
+    "kernel": "q2_draft",
+    "signature_types": {
+      "HIST": "*i64",
+      "LENGTH": "*i64",
+      "IDS": "*i64",
+      "INPUT": "*i64"
+    },
+    "constants": {
+      "CAP": 544,
+      "BLOCK": 1024
+    },
+    "grid": [
+      1
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": true,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_attention_c544",
+    "source": "q2_kernels.py",
+    "kernel": "q2_attention_split",
+    "signature_types": {
+      "Q": "*bf16",
+      "K": "*bf16",
+      "V": "*bf16",
+      "POS": "*i64",
+      "PART": "*fp32",
+      "PMAX": "*fp32",
+      "PSUM": "*fp32"
+    },
+    "constants": {
+      "CAP": 544,
+      "SPLITS": 3,
+      "SCALE": 0.08838834764831845,
+      "BLOCK_N": 256,
+      "D": 128
+    },
+    "grid": [
+      8,
+      3
+    ],
+    "warps": 4,
+    "stages": 1,
+    "fusion": true,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_writer_c544",
+    "source": "speculative_kernels.py",
+    "kernel": "verify_qkv_rope_cache_kernel",
+    "signature_types": {
+      "QKV": "*bf16",
+      "QW": "*bf16",
+      "KW": "*bf16",
+      "COS": "*bf16",
+      "SIN": "*bf16",
+      "Q": "*bf16",
+      "KC": "*bf16",
+      "VC": "*bf16",
+      "POS": "*i64"
+    },
+    "constants": {
+      "CAP": 544,
+      "EPS": 1e-06,
+      "NQ": 32,
+      "NKV": 8,
+      "D": 128
+    },
+    "grid": [
+      2,
+      40
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": false,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_draft_c640",
+    "source": "q2_kernels.py",
+    "kernel": "q2_draft",
+    "signature_types": {
+      "HIST": "*i64",
+      "LENGTH": "*i64",
+      "IDS": "*i64",
+      "INPUT": "*i64"
+    },
+    "constants": {
+      "CAP": 640,
+      "BLOCK": 1024
+    },
+    "grid": [
+      1
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": true,
+    "cap": 640,
+    "width": 2
+  },
+  {
+    "id": "q2_attention_c640",
+    "source": "q2_kernels.py",
+    "kernel": "q2_attention_split",
+    "signature_types": {
+      "Q": "*bf16",
+      "K": "*bf16",
+      "V": "*bf16",
+      "POS": "*i64",
+      "PART": "*fp32",
+      "PMAX": "*fp32",
+      "PSUM": "*fp32"
+    },
+    "constants": {
+      "CAP": 640,
+      "SPLITS": 3,
+      "SCALE": 0.08838834764831845,
+      "BLOCK_N": 256,
+      "D": 128
+    },
+    "grid": [
+      8,
+      3
+    ],
+    "warps": 4,
+    "stages": 1,
+    "fusion": true,
+    "cap": 640,
+    "width": 2
+  },
+  {
+    "id": "q2_writer_c640",
+    "source": "speculative_kernels.py",
+    "kernel": "verify_qkv_rope_cache_kernel",
+    "signature_types": {
+      "QKV": "*bf16",
+      "QW": "*bf16",
+      "KW": "*bf16",
+      "COS": "*bf16",
+      "SIN": "*bf16",
+      "Q": "*bf16",
+      "KC": "*bf16",
+      "VC": "*bf16",
+      "POS": "*i64"
+    },
+    "constants": {
+      "CAP": 640,
+      "EPS": 1e-06,
+      "NQ": 32,
+      "NKV": 8,
+      "D": 128
+    },
+    "grid": [
+      2,
+      40
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": false,
+    "cap": 640,
+    "width": 2
+  },
+  {
+    "id": "q2_draft_c2080",
+    "source": "q2_kernels.py",
+    "kernel": "q2_draft",
+    "signature_types": {
+      "HIST": "*i64",
+      "LENGTH": "*i64",
+      "IDS": "*i64",
+      "INPUT": "*i64"
+    },
+    "constants": {
+      "CAP": 2080,
+      "BLOCK": 4096
+    },
+    "grid": [
+      1
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": true,
+    "cap": 2080,
+    "width": 2
+  },
+  {
+    "id": "q2_attention_c2080",
+    "source": "q2_kernels.py",
+    "kernel": "q2_attention_split",
+    "signature_types": {
+      "Q": "*bf16",
+      "K": "*bf16",
+      "V": "*bf16",
+      "POS": "*i64",
+      "PART": "*fp32",
+      "PMAX": "*fp32",
+      "PSUM": "*fp32"
+    },
+    "constants": {
+      "CAP": 2080,
+      "SPLITS": 9,
+      "SCALE": 0.08838834764831845,
+      "BLOCK_N": 256,
+      "D": 128
+    },
+    "grid": [
+      8,
+      9
+    ],
+    "warps": 4,
+    "stages": 1,
+    "fusion": true,
+    "cap": 2080,
+    "width": 2
+  },
+  {
+    "id": "q2_writer_c2080",
+    "source": "speculative_kernels.py",
+    "kernel": "verify_qkv_rope_cache_kernel",
+    "signature_types": {
+      "QKV": "*bf16",
+      "QW": "*bf16",
+      "KW": "*bf16",
+      "COS": "*bf16",
+      "SIN": "*bf16",
+      "Q": "*bf16",
+      "KC": "*bf16",
+      "VC": "*bf16",
+      "POS": "*i64"
+    },
+    "constants": {
+      "CAP": 2080,
+      "EPS": 1e-06,
+      "NQ": 32,
+      "NKV": 8,
+      "D": 128
+    },
+    "grid": [
+      2,
+      40
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": false,
+    "cap": 2080,
+    "width": 2
+  },
+  {
+    "id": "q2_draft_c8192",
+    "source": "q2_kernels.py",
+    "kernel": "q2_draft",
+    "signature_types": {
+      "HIST": "*i64",
+      "LENGTH": "*i64",
+      "IDS": "*i64",
+      "INPUT": "*i64"
+    },
+    "constants": {
+      "CAP": 8192,
+      "BLOCK": 8192
+    },
+    "grid": [
+      1
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": true,
+    "cap": 8192,
+    "width": 2
+  },
+  {
+    "id": "q2_attention_c8192",
+    "source": "q2_kernels.py",
+    "kernel": "q2_attention_split",
+    "signature_types": {
+      "Q": "*bf16",
+      "K": "*bf16",
+      "V": "*bf16",
+      "POS": "*i64",
+      "PART": "*fp32",
+      "PMAX": "*fp32",
+      "PSUM": "*fp32"
+    },
+    "constants": {
+      "CAP": 8192,
+      "SPLITS": 32,
+      "SCALE": 0.08838834764831845,
+      "BLOCK_N": 256,
+      "D": 128
+    },
+    "grid": [
+      8,
+      32
+    ],
+    "warps": 4,
+    "stages": 1,
+    "fusion": true,
+    "cap": 8192,
+    "width": 2
+  },
+  {
+    "id": "q2_writer_c8192",
+    "source": "speculative_kernels.py",
+    "kernel": "verify_qkv_rope_cache_kernel",
+    "signature_types": {
+      "QKV": "*bf16",
+      "QW": "*bf16",
+      "KW": "*bf16",
+      "COS": "*bf16",
+      "SIN": "*bf16",
+      "Q": "*bf16",
+      "KC": "*bf16",
+      "VC": "*bf16",
+      "POS": "*i64"
+    },
+    "constants": {
+      "CAP": 8192,
+      "EPS": 1e-06,
+      "NQ": 32,
+      "NKV": 8,
+      "D": 128
+    },
+    "grid": [
+      2,
+      40
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": false,
+    "cap": 8192,
+    "width": 2
+  },
+  {
+    "id": "q2_merge_s1",
+    "source": "custom_kernels.py",
+    "kernel": "attention_merge_kernel",
+    "signature_types": {
+      "PART": "*fp32",
+      "PMAX": "*fp32",
+      "PSUM": "*fp32",
+      "O": "*bf16"
+    },
+    "constants": {
+      "SPLITS": 1,
+      "BLOCK_S": 1,
+      "D": 128
+    },
+    "grid": [
+      64
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": true,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_merge_s2",
+    "source": "custom_kernels.py",
+    "kernel": "attention_merge_kernel",
+    "signature_types": {
+      "PART": "*fp32",
+      "PMAX": "*fp32",
+      "PSUM": "*fp32",
+      "O": "*bf16"
+    },
+    "constants": {
+      "SPLITS": 2,
+      "BLOCK_S": 2,
+      "D": 128
+    },
+    "grid": [
+      64
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": true,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_merge_s3",
+    "source": "custom_kernels.py",
+    "kernel": "attention_merge_kernel",
+    "signature_types": {
+      "PART": "*fp32",
+      "PMAX": "*fp32",
+      "PSUM": "*fp32",
+      "O": "*bf16"
+    },
+    "constants": {
+      "SPLITS": 3,
+      "BLOCK_S": 4,
+      "D": 128
+    },
+    "grid": [
+      64
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": true,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_merge_s9",
+    "source": "custom_kernels.py",
+    "kernel": "attention_merge_kernel",
+    "signature_types": {
+      "PART": "*fp32",
+      "PMAX": "*fp32",
+      "PSUM": "*fp32",
+      "O": "*bf16"
+    },
+    "constants": {
+      "SPLITS": 9,
+      "BLOCK_S": 16,
+      "D": 128
+    },
+    "grid": [
+      64
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": true,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_merge_s32",
+    "source": "custom_kernels.py",
+    "kernel": "attention_merge_kernel",
+    "signature_types": {
+      "PART": "*fp32",
+      "PMAX": "*fp32",
+      "PSUM": "*fp32",
+      "O": "*bf16"
+    },
+    "constants": {
+      "SPLITS": 32,
+      "BLOCK_S": 32,
+      "D": 128
+    },
+    "grid": [
+      64
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": true,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_embedding_norm_kernel",
+    "source": "custom_kernels.py",
+    "kernel": "embedding_norm_kernel",
+    "signature_types": {
+      "IDS": "*i64",
+      "EMB": "*bf16",
+      "W": "*bf16",
+      "X": "*bf16",
+      "N": "*bf16"
+    },
+    "constants": {
+      "H": 2560,
+      "EPS": 1e-06,
+      "BLOCK": 4096
+    },
+    "grid": [
+      2
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": false,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_residual_norm_kernel",
+    "source": "custom_kernels.py",
+    "kernel": "residual_norm_kernel",
+    "signature_types": {
+      "BRANCH": "*bf16",
+      "X": "*bf16",
+      "W": "*bf16",
+      "N": "*bf16"
+    },
+    "constants": {
+      "H": 2560,
+      "EPS": 1e-06,
+      "BLOCK": 4096
+    },
+    "grid": [
+      2
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": false,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_swiglu",
+    "source": "custom_kernels.py",
+    "kernel": "swiglu_kernel",
+    "signature_types": {
+      "GU": "*bf16",
+      "OUT": "*bf16"
+    },
+    "constants": {
+      "I": 9728,
+      "TOTAL": 19456,
+      "BLOCK": 1024
+    },
+    "grid": [
+      19
+    ],
+    "warps": 4,
+    "stages": 3,
+    "fusion": false,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_accept",
+    "source": "q2_kernels.py",
+    "kernel": "q2_accept",
+    "signature_types": {
+      "INPUT": "*i64",
+      "PRED": "*i64",
+      "HIST": "*i64",
+      "LENGTH": "*i64",
+      "POS": "*i64",
+      "IDS": "*i64",
+      "OUT": "*i64",
+      "COUNT": "*i64",
+      "STEP": "*i64"
+    },
+    "constants": {},
+    "grid": [
+      1
+    ],
+    "warps": 1,
+    "stages": 3,
+    "fusion": true,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_append_i0",
+    "source": "q2_kernels.py",
+    "kernel": "q2_append",
+    "signature_types": {
+      "HIST": "*i64",
+      "LENGTH": "*i64",
+      "IDS": "*i64",
+      "OUT": "*i64",
+      "COUNT": "*i64",
+      "STEP": "*i64"
+    },
+    "constants": {
+      "INDEX": 0
+    },
+    "grid": [
+      1
+    ],
+    "warps": 1,
+    "stages": 3,
+    "fusion": true,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_append_i1",
+    "source": "q2_kernels.py",
+    "kernel": "q2_append",
+    "signature_types": {
+      "HIST": "*i64",
+      "LENGTH": "*i64",
+      "IDS": "*i64",
+      "OUT": "*i64",
+      "COUNT": "*i64",
+      "STEP": "*i64"
+    },
+    "constants": {
+      "INDEX": 1
+    },
+    "grid": [
+      1
+    ],
+    "warps": 1,
+    "stages": 3,
+    "fusion": true,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_append_i2",
+    "source": "q2_kernels.py",
+    "kernel": "q2_append",
+    "signature_types": {
+      "HIST": "*i64",
+      "LENGTH": "*i64",
+      "IDS": "*i64",
+      "OUT": "*i64",
+      "COUNT": "*i64",
+      "STEP": "*i64"
+    },
+    "constants": {
+      "INDEX": 2
+    },
+    "grid": [
+      1
+    ],
+    "warps": 1,
+    "stages": 3,
+    "fusion": true,
+    "cap": 544,
+    "width": 2
+  },
+  {
+    "id": "q2_append_i3",
+    "source": "q2_kernels.py",
+    "kernel": "q2_append",
+    "signature_types": {
+      "HIST": "*i64",
+      "LENGTH": "*i64",
+      "IDS": "*i64",
+      "OUT": "*i64",
+      "COUNT": "*i64",
+      "STEP": "*i64"
+    },
+    "constants": {
+      "INDEX": 3
+    },
+    "grid": [
+      1
+    ],
+    "warps": 1,
+    "stages": 3,
+    "fusion": true,
+    "cap": 544,
+    "width": 2
+  }
+]
