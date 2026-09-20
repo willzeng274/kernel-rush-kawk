@@ -300,8 +300,25 @@ class Plan:
             d = swiglu(h2 @ layer.wgu.t()) @ layer.wd.t()
             h = add_rms_norm(x, d, self._next_norm(i), cfg.eps)
         logits = h.view(B, T, cfg.hidden)[:, -1] @ m.lm_head.t()
+        if self.recycler is not None:
+            self._warm_table(h)
         self.pos.fill_(T)
         return logits
+
+    def _warm_table(self, h: torch.Tensor, chunk: int = 2048) -> None:
+        """Record the model's top-k continuation of every prompt token, so the
+        adjacency table already knows the text's habits before the first draft.
+        Only the last prompt position is a real output; the rest reuse the final
+        hidden states the prefill computed anyway, one LM-head chunk at a time."""
+        m = self.model
+        B, T = self.B, self.T
+        tail = min(T, 1024)  # the most recent context is what the drafts will draw on
+        h = h.view(B, T, -1)[:, T - tail:].reshape(B * tail, -1)
+        ids = self.ids[:, T - tail:].reshape(-1)
+        rows = h.shape[0]
+        for start in range(0, rows, chunk):
+            logits = h[start:start + chunk] @ m.lm_head.t()
+            self.recycler.update(ids[start:start + chunk], logits)
 
     @torch.inference_mode()
     def decode(self) -> torch.Tensor:

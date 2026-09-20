@@ -512,6 +512,9 @@ def pick_normed(kind: str, x: torch.Tensor, y: torch.Tensor, w_norm: torch.Tenso
     ref = unfused(x, y, w_norm, xout, w).float()
     ref_xout = xout.clone()
     I = w.shape[0] // 2
+    if kind == "gateup" and (M, K, I) == (64, 2560, 9728) and w.shape[0] == 19456:
+        from kernels.m64_gateup_selection import pick_m64_gateup
+        return pick_m64_gateup(x, y, w_norm, xout, eps, unfused, rot, _time, log)
     candidates = []
     if M <= 32:
         for cfg in CONFIGS:
