@@ -4,8 +4,9 @@ import time
 import torch
 from triton.compiler.errors import CompilationError
 from triton.runtime.errors import OutOfResources
-from gemv_lifetime import CandidateRejected, Temporaries
-from gemv_layout import FAMILIES, CONFIGS, OptionalGemvLayout, family_tensors, interval
+from gemv_lifetime import CandidateRejected, Temporaries, retained_call
+from gemv_capture import NativeChunks
+from narrow_layout import FAMILIES, CONFIGS, NarrowLayout, family_tensors, interval
 from gemv_runtime import bind
 
 
@@ -27,7 +28,7 @@ def restore(e, prompts):
     try:
         host = owner.hold(torch.tensor(prompts, dtype=torch.int64))
         e.prefill_input.copy_(host, non_blocking=False)
-        e.prefill_graph.replay()
+        retained_call(e.prefill_graph.replay)
         e.position.fill_(e.prompt)
         c.drain()
         first = owner.hold(e.ids.clone())
@@ -53,72 +54,20 @@ def prefix(e, a, prompts, pos):
     chunk = a.native_chunks[4] if a.native_chunks is not None else a.chunks
     while current + 4 <= pos and 4 in chunk.graphs:
         e.gv_control.live('prefix', 5.)
-        chunk.graphs[4].replay()
+        retained_call(chunk.graphs[4].replay)
         e.gv_control.drain()
         e.gv_control.live()
         current += 4
     while current < pos:
         e.gv_control.live('prefix', 5.)
-        e._step()
+        retained_call(e._step)
         e.gv_control.drain()
         e.gv_control.live()
         current += 1
 
 
-class ProjectionGraph:
-    def __init__(self, e, operation, name, fixtures, weights):
-        c = self.control = e.gv_control
-        c.register(self)
-        self.stream = self.graph = None
-        self.operation, self.fixtures, self.weights = operation, fixtures, weights
-        c.live('family_compare', 5.)
-        e._gv_memory_guard()
-        self.stream = torch.cuda.Stream(device=e.ids.device)
-        def launch(check):
-            for index, ((x, y), weight) in enumerate(zip(fixtures, weights)):
-                if check:
-                    c.live()
-                operation.run(name, index, x, weight, y)
-                if check:
-                    c.live()
-        c.drain()
-        with torch.cuda.stream(self.stream):
-            launch(True)
-        c.wait(self.stream.synchronize)
-        c.live()
-        self.graph = torch.cuda.CUDAGraph()
-        c.live()
-        e.gv_captures += 1
-        with torch.cuda.graph(self.graph, stream=self.stream):
-            launch(False)
-        c.live()
-        self.graph.replay()
-        c.drain()
-        e._gv_memory_guard()
-
-
-def time_graph(e, graph):
-    c = e.gv_control
-    c.live('family_compare', 5.)
-    owner = Temporaries(c)
-    try:
-        start = owner.hold(torch.cuda.Event(enable_timing=True))
-        end = owner.hold(torch.cuda.Event(enable_timing=True))
-        start.record()
-        for _ in range(8):
-            graph.replay()
-        end.record()
-        c.wait(end.synchronize)
-        elapsed = start.elapsed_time(end) / 8
-        if not math.isfinite(elapsed) or elapsed <= 0:
-            raise CandidateRejected('invalid CUDA projection timing')
-        c.live()
-        return elapsed
-    finally:
-        owner.close()
-
-
-def select_family(e, native, name):
+def projection_numerics(e, native, name):
+    """All actual weights/all batch rows; this is a correctness test, not timing."""
     c = e.gv_control
     c.live('family_compile', 20.)
     _, _, weights = family_tensors(e, name)
@@ -129,15 +78,14 @@ def select_family(e, native, name):
             or sum(b - a for a, b in regions) <= l2):
         raise CandidateRejected('invalid or small actual all-layer weight pool')
     n, k = CONFIGS[name]
-    e._gv_memory_guard(extra_bytes=36 * (k + 2 * n) * 2)
+    e._gv_memory_guard(extra_bytes=36 * e.batch * (k + 2 * n) * 2)
     owner = Temporaries(c)
-    graphs = []
     try:
-        pairs = [(owner.hold(torch.empty((1, k), dtype=torch.bfloat16, device=e.ids.device)),
-                  owner.hold(torch.empty((1, n), dtype=torch.bfloat16, device=e.ids.device)))
+        pairs = [(owner.hold(torch.empty((e.batch, k), dtype=torch.bfloat16, device=e.ids.device)),
+                  owner.hold(torch.empty((e.batch, n), dtype=torch.bfloat16, device=e.ids.device)))
                  for _ in weights]
         refs = [owner.hold(torch.empty_like(y)) for _, y in pairs]
-        port = OptionalGemvLayout(e, native, (name,), private={name: pairs})
+        port = NarrowLayout(e, native, (name,), private={name: pairs})
         generator = torch.Generator(device=e.ids.device)
         generator.manual_seed(73491 + FAMILIES.index(name))
         compiled = False
@@ -146,7 +94,7 @@ def select_family(e, native, name):
                 c.live('family_compare', 5.)
                 x.normal_(generator=generator)
                 x.mul_(scale)
-                native.run(name, index, x, weight, reference)
+                retained_call(native.run, name, index, x, weight, reference)
                 if not compiled:
                     c.live('family_compile', 20.)
                     compile_started = time.perf_counter()
@@ -158,36 +106,110 @@ def select_family(e, native, name):
                 c.live()
                 close(y, reference, 'all layer projection channels', .01, .01)
                 c.live()
-        started = time.perf_counter()
-        graphs.append(ProjectionGraph(e, native, name, pairs, weights))
-        graphs.append(ProjectionGraph(e, port, name, pairs, weights))
-        timings = [time_graph(e, graphs[index].graph) for index in (0, 1, 1, 0)]
-        if not max(timings[1:3]) < .95 * min(timings[0], timings[3]):
-            raise CandidateRejected('selected GEMV family gain insufficient')
         e._gv_memory_guard()
-        c.observed('family_compare', time.perf_counter() - started)
     finally:
-        c.drain()
-        for graph in graphs:
-            c.release(graph)
-        graphs.clear()
         owner.close()
 
 
-def select_families(e, native):
+def family_chain(e, a, prompts, name):
+    """ABBA of real 36-layer native chains; every next step consumes prior IDs/KV."""
+    c = e.gv_control
+    before = list(c.owners)
+    owner = Temporaries(c)
+    try:
+        steps = min(4, e.shape[2] - 1)
+        achunk = a.native_chunks[steps] if a.native_chunks is not None else a.chunks
+        agraph, aoutput = achunk.graphs[steps], achunk.outputs[steps]
+        bind(e, a)
+        first = restore(e, prompts)
+        port = c.register(NarrowLayout(e, a.layout, (name,)))
+        e.native_layout, e.gv_bound = port, None
+        candidate = NativeChunks(e, first, steps, steps)
+        graph, proof = candidate.graphs[steps], candidate.proofs[steps]
+        output = candidate.outputs[steps]
+        if not proof.valid(graph, port) or proof.steps != steps:
+            raise RuntimeError('family chain lacks exact capture proof')
+        captured = e.gv_captures
+        timings, expected_rows, expected_logits, expected_kv = [], None, None, None
+        for use_port in (False, True, True, False):
+            bind(e, a)
+            restore(e, prompts)
+            c.live('family_chain', 5.)
+            chosen_graph = graph if use_port else agraph
+            chosen_output = output if use_port else aoutput
+            if use_port:
+                e.native_layout, e.gv_bound = port, None
+                if candidate.graphs[steps] is not graph or not proof.valid(graph, port):
+                    raise RuntimeError('family graph identity changed')
+            start = owner.hold(torch.cuda.Event(enable_timing=True))
+            end = owner.hold(torch.cuda.Event(enable_timing=True))
+            e.gv_timing = True
+            try:
+                start.record()
+                if use_port:
+                    chosen_graph.replay()
+                else:
+                    retained_call(chosen_graph.replay)
+                end.record()
+                c.wait(end.synchronize)
+                c.drain()
+            finally:
+                e.gv_timing = False
+            elapsed = start.elapsed_time(end)
+            if not math.isfinite(elapsed) or elapsed <= 0:
+                raise CandidateRejected('invalid dependent native chain timing')
+            c.live()
+            if e.gv_captures != captured:
+                raise RuntimeError('family chain recaptured during timing')
+            rows = tuple(tuple(row) for row in chosen_output.tolist())
+            if (len(rows) != steps or any(len(row) != e.batch for row in rows)
+                    or int(e.position.item()) != e.prompt + steps
+                    or tuple(e.ids.tolist()) != rows[-1]):
+                raise CandidateRejected('family chain output/position mismatch')
+            if expected_rows is None:
+                expected_rows = rows
+                e._gv_memory_guard()
+                expected_logits = owner.hold(e.logits.clone())
+                expected_kv = [owner.hold(t[:, :, e.prompt:e.prompt + steps].clone())
+                               for t in e.keys + e.values]
+                c.drain()
+            else:
+                if rows != expected_rows:
+                    raise CandidateRejected('family chain greedy stream mismatch')
+                close(e.logits, expected_logits, 'family chain full logits')
+                if not torch.equal(e.logits.argmax(-1), expected_logits.argmax(-1)):
+                    raise CandidateRejected('family chain final argmax mismatch')
+                for actual, reference in zip(e.keys + e.values, expected_kv):
+                    close(actual[:, :, e.prompt:e.prompt + steps], reference,
+                          'family chain all-layer KV')
+                    c.live()
+            timings.append(elapsed)
+            e._gv_memory_guard()
+        if not max(timings[1:3]) < min(timings[0], timings[3]):
+            raise CandidateRejected('no robust dependent native chain improvement')
+    finally:
+        # Partial constructors remain published until the first successful drain.
+        c.drain()
+        bind(e, a)
+        owner.close()
+        c.owners[:] = before
+
+
+def select_families(e, a, prompts):
     chosen = []
     for name in FAMILIES:
         before = list(e.gv_control.owners)
         try:
-            select_family(e, native, name)
+            projection_numerics(e, a.layout, name)
+            family_chain(e, a, prompts, name)
             chosen.append(name)
         except (CandidateRejected, CompilationError, OutOfResources, torch.cuda.OutOfMemoryError):
             e.gv_control.drain()
-            # Constructors publish before allocation; also release partial owners.
+            bind(e, a)
             e.gv_control.owners[:] = before
         e.gv_control.live()
     if not chosen:
-        raise CandidateRejected('no selected GEMV family')
+        raise CandidateRejected('no selected narrow projection family')
     return tuple(chosen)
 
 
@@ -235,7 +257,7 @@ def paired(e, a, b, prompts, pos, steps=1, graph=None, output=None):
         expected_ids = []
         for _ in range(steps):
             c.live()
-            e._step()
+            retained_call(e._step)
             c.drain()
             c.live()
             expected_ids.append(tuple(e.ids.tolist()))

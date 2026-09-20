@@ -10,6 +10,17 @@ class PoisonedRuntime(RuntimeError):
     pass
 
 
+class RetainedFailure(RuntimeError):
+    """Preserve reference-execution provenance through optional handlers."""
+
+
+def retained_call(operation, *args, **kwargs):
+    try:
+        return operation(*args, **kwargs)
+    except Exception as error:
+        raise RetainedFailure('retained execution failed') from error
+
+
 class Control:
     def __init__(self, started, drain, clock=time.monotonic):
         self.started, self._drain, self.clock = started, drain, clock

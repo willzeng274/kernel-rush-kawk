@@ -1,4 +1,4 @@
-"""Retained #32 plus three optional licensed SGLang B1 BF16 GEMV families."""
+"""Retained #32 plus four optional ordinary BF16 narrow MMA projection families."""
 import time
 import torch
 from triton.compiler.errors import CompilationError
@@ -6,7 +6,7 @@ from triton.runtime.errors import OutOfResources
 from retained_engine import Engine as RetainedEngine
 from full_prefill_engine import Engine as PrefillEngine
 from gemv_lifetime import Control, CandidateRejected
-from gemv_layout import OptionalGemvLayout
+from narrow_layout import NarrowLayout
 from gemv_capture import NativeChunks
 from gemv_runtime import snapshot, bind, timed_complete, require_stream, whole_call_admission
 from gemv_validate import restore, select_families, validate
@@ -76,7 +76,7 @@ class Engine(RetainedEngine):
         if (extra_bytes < 0 or free < required
                 or torch.cuda.memory_allocated() + required > .85 * total
                 or torch.cuda.max_memory_allocated() >= .85 * total):
-            raise CandidateRejected('optional GEMV memory preflight')
+            raise CandidateRejected('optional narrow MMA memory preflight')
 
     def _run_retained(self, prompts, output):
         """Same cheap steady guards and final drain in trials and deployed calls."""
@@ -89,7 +89,7 @@ class Engine(RetainedEngine):
                     or self.fused_cache_attention is not cfg.attention or self.chunks is not cfg.chunks
                     or self.native_chunks is not cfg.native_chunks or self.verifier is not cfg.verifier
                     or self.prefill_graph is not cfg.prefill or self.dense_prefill is not cfg.dense_prefill):
-                raise RuntimeError('steady GEMV configuration identity changed')
+                raise RuntimeError('steady narrow MMA configuration identity changed')
         gen = None
         try:
             gen = RetainedEngine.generate(self, prompts, output)
@@ -136,8 +136,8 @@ class Engine(RetainedEngine):
                 restore(self, prompts)
                 c.reserve()
                 c.live()
-                chosen = select_families(self, self.gv_retained_layout)
-                layout = OptionalGemvLayout(self, self.gv_retained_layout, chosen)
+                chosen = select_families(self, self.gv_a, prompts)
+                layout = NarrowLayout(self, self.gv_retained_layout, chosen)
                 c.register(layout)
                 first = restore(self, prompts)
                 self.native_layout = layout
@@ -178,7 +178,7 @@ class Engine(RetainedEngine):
         gen = None
         try:
             batch, prompt = len(input_ids), len(input_ids[0])
-            eligible = self.gv_capable and batch == 1 and prompt >= 1 and max_new_tokens >= 2
+            eligible = self.gv_capable and 1 <= batch <= 32 and prompt >= 1 and max_new_tokens >= 2
             if eligible and (self.shape != (batch, prompt, max_new_tokens) or not self.gv_decided):
                 self._prepare_gemv(input_ids, max_new_tokens)
             gen = self._run_retained(input_ids, max_new_tokens)

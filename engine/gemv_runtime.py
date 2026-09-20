@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import math
 import time
 from gemv_lifetime import CandidateRejected
-from gemv_layout import signature, SOURCE
+from narrow_layout import signature, SOURCE
 
 
 def buffer_fingerprint(e):
