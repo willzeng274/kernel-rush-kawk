@@ -17,13 +17,13 @@ jobs:
           python-version: '3.11'
       - name: Install pinned compiler only
         run: python -m pip install --disable-pip-version-check triton==3.1.0
-      - name: Compile six frozen sibling-swap draft cases
+      - name: Compile six frozen longest-path acceptance cases
         run: |
-          python tools/krxfty_spine_swap_fresh_86/preflight.py
-          timeout 180s python tools/krxfty_spine_swap_fresh_86/compile_spine_swap.py
+          python tools/krxfty_longest_fresh_87/preflight.py
+          timeout 180s python tools/krxfty_longest_fresh_87/compile_accept.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: sm90-compiler-evidence
-          path: tools/krxfty_spine_swap_fresh_86/compile-results/
+          path: tools/krxfty_longest_fresh_87/compile-results/
           retention-days: 1

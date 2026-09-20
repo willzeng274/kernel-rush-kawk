@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "source_tree_sha256": "dbdff11c9ed9500506fce921f91bc63000286f8991627d2271d34d73fd7a968c",
+  "decorated_accept_sha256": "94162015215edc4cc23227cf48ed8ec9da999cb9a3b96aaabc318c4abb8ccfb2",
+  "compile_calls": 6,
+  "cuda_execution": false,
+  "compiler_imported": false
+}

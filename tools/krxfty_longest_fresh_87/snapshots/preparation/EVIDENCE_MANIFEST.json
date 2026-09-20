@@ -1,0 +1,11 @@
+{
+  "CANDIDATE.diff": "799180a6bb013cb0aff35498a6f4ba463b3a0f0c5b1d1f819a7649476d8f3a96",
+  "COMPILE_PLAN.json": "67fa334b709bb07edfed2a57bbddfd40409401f02e7dd15980981c941a1ea85d",
+  "CPU_OUTPUT.txt": "4e80a57f7862dd6b5a4450b8c333cb1859e02c0ada27b16b92fd63091818026f",
+  "CPU_RESULTS.json": "4e80a57f7862dd6b5a4450b8c333cb1859e02c0ada27b16b92fd63091818026f",
+  "REPORT.md": "33dfcbdd63112a7e889d3ec061259e0f438442415e8944db57b9c54dec34dddf",
+  "SOURCE_MANIFEST.json": "af53cadaa25b2fde4ca01cb64421fce97aec9abf48be8c46579c9e315a154072",
+  "check_longest.py": "8fc0e11bbc8bf2beec06f597a5e257ad60ce6be543fee866131e61a7270cfb20",
+  "freeze.py": "65709949ddc5501436685d0ec9d2b9eec3dbea4fefa067a6660b6af99ad18f60",
+  "live-docs.html": "b8661c852e7ee8deefea4c32729d17c10c227ccf23e646f1b7c507fc7a70d553"
+}

@@ -1,0 +1,90 @@
+{
+  "cases": 993,
+  "live": 896,
+  "frozen": 97,
+  "gains": 24,
+  "clipped_retained": 41,
+  "compaction": 93,
+  "publication": 93,
+  "mixed_batch_lanes": 3,
+  "mutants": {
+    "skip_longest": {
+      "case": "r8_remaining_3",
+      "reason": "('path length', 8, [4, 6], array([1], dtype=int32))"
+    },
+    "accept_bad_ancestors": {
+      "case": "r8_remaining_3",
+      "reason": "('path length', 8, [4, 6], array([4], dtype=int32))"
+    },
+    "child_prediction_instead_of_parent": {
+      "case": "r8_remaining_-2",
+      "reason": "('path length', 8, [1], array([0], dtype=int32))"
+    },
+    "parent_bits_instead_of_child": {
+      "case": "r8_remaining_3",
+      "reason": "('path length', 8, [4, 6], array([4], dtype=int32))"
+    },
+    "drop_invalid_bit63": {
+      "case": "bit63_invalid_63",
+      "reason": "('path length', 64, [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43,"
+    },
+    "padded_root_bit_poison": {
+      "case": "r8_remaining_3",
+      "reason": "('path length', 8, [4, 6], array([1], dtype=int32))"
+    },
+    "unclipped_choice": {
+      "case": "r8_remaining_-2",
+      "reason": "('path length', 8, [1], array([2], dtype=int32))"
+    },
+    "replace_ties": {
+      "case": "r8_remaining_-2",
+      "reason": "('path length', 8, [1], array([2], dtype=int32))"
+    },
+    "reverse_path_stores": {
+      "case": "r8_remaining_3",
+      "reason": "('path', [4, 6], array([[   6,    4, -999, -999]], dtype=int32))"
+    },
+    "wrong_bonus_row": {
+      "case": "r8_remaining_3",
+      "reason": "root"
+    },
+    "clip_count": {
+      "case": "r8_remaining_-2",
+      "reason": "full accepted count"
+    },
+    "overwrite_frozen_root": {
+      "case": "r8_frozen",
+      "reason": "root"
+    },
+    "compact_wrong_source": {
+      "case": "r8_remaining_3",
+      "reason": "actual compaction"
+    },
+    "publisher_omits_endpoint": {
+      "case": "r8_remaining_-2",
+      "reason": "every publication in path order"
+    }
+  },
+  "shapes": {
+    "8": 172,
+    "5": 1,
+    "64": 167,
+    "4": 163,
+    "16": 163,
+    "32": 163,
+    "42": 163,
+    "65": 1
+  },
+  "changed_files": [
+    "engine.py",
+    "kernels/accept.py",
+    "recycle.py"
+  ],
+  "actual_ast_sha256": {
+    "kernels/accept.py": "59de9460feb605e49b556f1c4c0afca3e28e6614f582e060d3279bbdc8f188d6",
+    "kernels/compact.py": "c7c1c6ef1d4822958e72c8afc769e4f3ceed836672ce9f4ea375c1366965772c",
+    "pair_cache.py": "40a3b1985c25ff768d067e4aea171271d640c9dad46513242a0f8ce1b1ac4030",
+    "recycle.py": "af2cbf5831cde4fe52a2c15d876dc09c52ec79280585712bdc30db7d88a198a0",
+    "engine.py": "055c3a0c6c231820fea84194e27e2dacddb9e3aa056dbdb03268b7dee58f539c"
+  }
+}

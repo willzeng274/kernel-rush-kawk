@@ -1,0 +1,75 @@
+{
+  "status": "proposal only; not executed",
+  "scope": "accept_kernel only, exact baseline and candidate",
+  "target": "sm90, platform Triton 3.1.0",
+  "num_warps": 1,
+  "source_paths": [
+    "/Users/polyuser/Documents/Codex/2026-09-19/yse/work/candidates/krxfty_pair_cache_on82/engine/kernels/accept.py",
+    "/Users/polyuser/Documents/Codex/2026-09-19/yse/work/candidates/krxfty_longest_verified/engine/kernels/accept.py"
+  ],
+  "matrix": [
+    {
+      "R": 4,
+      "C": 3,
+      "P": 8,
+      "MAXA": 3,
+      "GUARD": 8,
+      "longest_selector_compiled_in": false
+    },
+    {
+      "R": 8,
+      "C": 7,
+      "P": 16,
+      "MAXA": 4,
+      "GUARD": 16,
+      "longest_selector_compiled_in": true
+    },
+    {
+      "R": 16,
+      "C": 15,
+      "P": 32,
+      "MAXA": 5,
+      "GUARD": 32,
+      "longest_selector_compiled_in": true
+    },
+    {
+      "R": 32,
+      "C": 31,
+      "P": 64,
+      "MAXA": 6,
+      "GUARD": 64,
+      "longest_selector_compiled_in": true
+    },
+    {
+      "R": 42,
+      "C": 41,
+      "P": 64,
+      "MAXA": 7,
+      "GUARD": 84,
+      "longest_selector_compiled_in": true
+    },
+    {
+      "R": 64,
+      "C": 63,
+      "P": 128,
+      "MAXA": 8,
+      "GUARD": 128,
+      "longest_selector_compiled_in": true
+    }
+  ],
+  "signature": "derive from actual wrappers: masks i64 pointer, depth i32 pointer; other arguments unchanged",
+  "checks": [
+    "Both versions compile for all listed shapes without launching CUDA.",
+    "Record compile diagnostics, registers, spills/local memory and shared memory.",
+    "Inspect candidate uint64 mask accumulation, bit63, padded guards and gain branch.",
+    "Confirm R4 static chain exclusion removes additional selection and reconstruction.",
+    "Retain source hashes and complete compiler artifacts; do not infer runtime speed or correctness."
+  ],
+  "excluded": [
+    "model compilation",
+    "draft/publisher/compact recompilation",
+    "GPU invocation",
+    "CI dispatch",
+    "official submission"
+  ]
+}
