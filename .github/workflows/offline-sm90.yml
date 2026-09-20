@@ -17,8 +17,8 @@ jobs:
           python-version: '3.11'
       - name: Install pinned compiler only
         run: python -m pip install --disable-pip-version-check triton==3.1.0
-      - name: Compile frozen prefix attention baseline and candidate
-        run: python tools/offline_krxfty_prefix.py
+      - name: Compile five frozen split-loop attention cases
+        run: python tools/offline_krxfty_prefix_splitloop.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
