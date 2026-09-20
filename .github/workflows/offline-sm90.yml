@@ -17,8 +17,8 @@ jobs:
           python-version: '3.11'
       - name: Install pinned compiler only
         run: python -m pip install --disable-pip-version-check triton==3.1.0
-      - name: Compile targeted resource fixes with exact options
-        run: python tools/offline_experiments.py
+      - name: Compile pinned SGLang BF16 attention with exact options
+        run: python tools/offline_sglang.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
