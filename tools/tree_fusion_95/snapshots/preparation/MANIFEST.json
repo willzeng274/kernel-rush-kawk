@@ -1,0 +1,227 @@
+{
+  "status": "source-preparation-only; not integrated; no Triton compilation/GPU/CI/network",
+  "files_sha256": {
+    "tree_fused_attention_device.py": "8e270daf605ad5f7daf019b6fca4b0a89ec3db6a7516154859e6850e5a3039d1",
+    "tree_fused_attention.py": "a52bb5f452673005d7e7f04b379a8a820f848ddf13b93257b73cc100afbc2614",
+    "cpu_controls.py": "813693284f398e1bcf116bf27da6c6d17c518273a1a9fc793ecb57be68c93e1c",
+    "REPORT.md": "27d07eb6417ff6f0c885c3b708475b582636461ca8fdca6cc9fa2b78e4691911"
+  },
+  "baseline": "work/candidates/krxfty_median5_on90/engine",
+  "baseline_sha256": {
+    "kernels/attention.py": "db331e597132e9e084975e3d9d475b89c8c1aa0d0991b5836381112ba5aec67d",
+    "kernels/rope.py": "7461f6b065837da04693e6e591add872e7ac5a005514d7886d188cf7aa183fc0",
+    "model.py": "de66742f22f79dd664113a028895896ee081f366a57b2a151f5dc4f1b5841cd7"
+  },
+  "inputs_read": [
+    "work/kernel-rush-kawk/AGENTS.md",
+    "work/kernel-rush-kawk/QWEN_ENGINE_CONTRACT.md",
+    "work/kernel-rush-kawk/OPTIMIZATION_GUIDE.md",
+    "work/research/tree_attention_fusion_fresh_95/REPORT.md",
+    "work/research/tree_attention_fusion_fresh_95/FACTS.json",
+    "work/research/sglang_gemv_fresh/sources/triton-v3.1.0/python/triton/language/core.py",
+    "work/research/sglang_gemv_fresh/sources/triton-v3.1.0/python/triton/language/semantic.py",
+    "work/candidates/krxfty_median5_on90/engine/recycle.py"
+  ],
+  "api": {
+    "class": "kernels.tree_fused_attention.TreeFusedAttention",
+    "constructor": "(incumbent, *, authorized=False)",
+    "call": "(qkv,q_norm_w,k_norm_w,cos,sin,pos,depth,k_cache,v_cache,out,tree,eps)",
+    "partial_ownership": "retained incumbent owner; same-stream serialized shared buffers; caller retains owners through graph drain",
+    "reducer": "imports incumbent kernels.attention._reduce_kernel unchanged"
+  },
+  "supported": {
+    "TREE": true,
+    "NSPLIT": 2,
+    "NSP": 2,
+    "row_blocks": 1,
+    "HQ": 32,
+    "HKV": 8,
+    "D": 128,
+    "G": 4,
+    "R_GP": [
+      [
+        4,
+        16
+      ],
+      [
+        8,
+        32
+      ]
+    ],
+    "configs_BN_W_S": [
+      [
+        64,
+        4,
+        2
+      ],
+      [
+        128,
+        4,
+        2
+      ],
+      [
+        128,
+        8,
+        3
+      ],
+      [
+        128,
+        4,
+        3
+      ],
+      [
+        64,
+        4,
+        3
+      ],
+      [
+        64,
+        8,
+        3
+      ],
+      [
+        64,
+        8,
+        2
+      ],
+      [
+        32,
+        4,
+        3
+      ]
+    ],
+    "retuning": false
+  },
+  "cpu_controls": {
+    "command": "python3 work/research/tree_fusion_device_fresh_95/cpu_controls.py",
+    "result": "PASS",
+    "tests": 9,
+    "geometry_cases": 7078,
+    "dispatch_cases": 16,
+    "elapsed_seconds": 0.74,
+    "dependencies": "Python standard library only",
+    "limitations": "No Triton/GPU lowering, rsqrt/dot equivalence, correctness, resource use, performance, or greedy validation established"
+  },
+  "minimum_compile_smoke_proposal": [
+    {
+      "name": "gp16_basic",
+      "compile_only_proposal": true,
+      "grid": [
+        16,
+        8,
+        2
+      ],
+      "constexprs": {
+        "ROW": 6144,
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 16,
+        "R": 4,
+        "D": 128,
+        "BLOCK_N": 64
+      },
+      "launch": {
+        "num_warps": 4,
+        "num_stages": 2
+      },
+      "runtime_scalars": {
+        "CAP": 768,
+        "NSPLIT": 2,
+        "SPLIT_LEN": 384,
+        "scale": 0.08838834764831845,
+        "eps": 1e-06
+      }
+    },
+    {
+      "name": "gp32_large",
+      "compile_only_proposal": true,
+      "grid": [
+        8,
+        8,
+        2
+      ],
+      "constexprs": {
+        "ROW": 6144,
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 8,
+        "D": 128,
+        "BLOCK_N": 128
+      },
+      "launch": {
+        "num_warps": 8,
+        "num_stages": 3
+      },
+      "runtime_scalars": {
+        "CAP": 768,
+        "NSPLIT": 2,
+        "SPLIT_LEN": 384,
+        "scale": 0.08838834764831845,
+        "eps": 1e-06
+      }
+    },
+    {
+      "name": "gp32_small_tile",
+      "compile_only_proposal": true,
+      "grid": [
+        8,
+        8,
+        2
+      ],
+      "constexprs": {
+        "ROW": 6144,
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 8,
+        "D": 128,
+        "BLOCK_N": 32
+      },
+      "launch": {
+        "num_warps": 4,
+        "num_stages": 3
+      },
+      "runtime_scalars": {
+        "CAP": 768,
+        "NSPLIT": 2,
+        "SPLIT_LEN": 384,
+        "scale": 0.08838834764831845,
+        "eps": 1e-06
+      }
+    }
+  ],
+  "compile_pointer_signature": {
+    "bf16": [
+      "qkv_ptr",
+      "qw_ptr",
+      "kw_ptr",
+      "cos_ptr",
+      "sin_ptr",
+      "k_ptr",
+      "v_ptr"
+    ],
+    "i32": [
+      "pos_ptr",
+      "depth_ptr"
+    ],
+    "i64": [
+      "tree_ptr"
+    ],
+    "fp32": [
+      "o_part_ptr",
+      "m_part_ptr",
+      "l_part_ptr"
+    ]
+  },
+  "fixture_limits": "3 smoke fixtures cover axes, not full interactions. Every incumbent tuple actually considered by selector must compile and be resource/correctness/timing-validated. No fixture was compiled.",
+  "review_gates": [
+    "Q [64,GP] reduction lowering fidelity and ordered-join layout conversion",
+    "Register/shared-memory/spill/pipelining review under exact selected BN/W/S",
+    "Full cache/output comparison including mixed/boundary/empty splits and sibling depth",
+    "Exact greedy comparison and complete 36-layer rotation timing versus separate incumbent path"
+  ]
+}

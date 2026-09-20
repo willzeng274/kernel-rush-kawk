@@ -1,0 +1,21 @@
+{
+  "status": "PASS_SOURCE_PREPARATION_ONLY",
+  "full_device_bytes_equal_frozen_proposal": true,
+  "host_bytes_equal_frozen_proposal": true,
+  "norm_helper_bytes_equal_exact91": true,
+  "reducer_bytes_equal_exact91": true,
+  "reducer_compilation_requested": false,
+  "engine_files": 21,
+  "source_set_sha256": "b6056c831405c3214954b1c8ac81638c1e05458f0652d6233165462f041ff57c",
+  "launch_records": 6,
+  "compile_cases": 3,
+  "run_bounded_body_unchanged": true,
+  "run_bounded_sha256": "ff6d72935e83b7d7f4312d224993f38910421ad9c087daf3ddf7811f5a9d2663",
+  "jit_source_sha256": "7542bf9254646331ed90ce16fe1bfb2caf87d77d748d84396aab44c8027d508b",
+  "backend_source_sha256": "a979896b9c0acfd41dd953b90bdc4b10968f7c0b45a286eae3f829aaddb2bb55",
+  "cpu_controls_reexecuted": false,
+  "native_compiler_imported": false,
+  "compile_calls": 0,
+  "gpu_execution": false,
+  "checkout_mutated": false
+}

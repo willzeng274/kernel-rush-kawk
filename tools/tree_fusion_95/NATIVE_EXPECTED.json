@@ -1,0 +1,2056 @@
+{
+  "method": "Execute exact frozen DecodeAttention construction and complete TreeFusedAttention wrapper against CPU tensor/launch stand-ins, then pinned Triton 3.1 create_binder/binder/_get_config and CUDAOptions/parse_options from primary AST. No compiler/Torch/GPU import. Native driver must match every launch field before any build.",
+  "jit_source_sha256": "7542bf9254646331ed90ce16fe1bfb2caf87d77d748d84396aab44c8027d508b",
+  "backend_source_sha256": "a979896b9c0acfd41dd953b90bdc4b10968f7c0b45a286eae3f829aaddb2bb55",
+  "kernel_source_sha256": "8e270daf605ad5f7daf019b6fca4b0a89ec3db6a7516154859e6850e5a3039d1",
+  "wrapper_source_sha256": "a52bb5f452673005d7e7f04b379a8a820f848ddf13b93257b73cc100afbc2614",
+  "launches": [
+    {
+      "case": "gp16_basic",
+      "kernel": "_fused_tree_split_kernel",
+      "grid": [
+        16,
+        8,
+        2
+      ],
+      "compile_requested": true,
+      "native_key_sha256": "d527aff9f410ae54a159ec71636986d91b65e53b46bdaed7b0d551a833a2b86e",
+      "jit_cache_key_sha256": "de4ecf242fe8775f98e14ecc80d796040598b6dc2cee2fcbebcb1d7942382bcd",
+      "jit_cache_key": "*bf16*bf16*bf16*bf16*bf16*i32*i32*i64*bf16*bf16*fp32*fp32*fp32i32fp32i32i32fp32DDDDDDDDDDDDDDNNDN((6144, 32, 8, 4, 16, 4, 128, 64), {'num_warps': 4, 'num_stages': 2, 'debug': None})",
+      "bound_arguments": {
+        "qkv_ptr": {
+          "shape": [
+            64,
+            6144
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "qw_ptr": {
+          "shape": [
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "kw_ptr": {
+          "shape": [
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "cos_ptr": {
+          "shape": [
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "sin_ptr": {
+          "shape": [
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "pos_ptr": {
+          "shape": [
+            16
+          ],
+          "dtype": "torch.int32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "depth_ptr": {
+          "shape": [
+            4
+          ],
+          "dtype": "torch.int32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "tree_ptr": {
+          "shape": [
+            4
+          ],
+          "dtype": "torch.int64",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "k_ptr": {
+          "shape": [
+            16,
+            8,
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "v_ptr": {
+          "shape": [
+            16,
+            8,
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "o_part_ptr": {
+          "shape": [
+            16,
+            32,
+            4,
+            2,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "m_part_ptr": {
+          "shape": [
+            16,
+            32,
+            4,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "l_part_ptr": {
+          "shape": [
+            16,
+            32,
+            4,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "CAP": 768,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 2,
+        "SPLIT_LEN": 384,
+        "eps": 1e-06,
+        "ROW": 6144,
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 16,
+        "R": 4,
+        "D": 128,
+        "BLOCK_N": 64
+      },
+      "signature_specialization": [
+        "*bf16",
+        "*bf16",
+        "*bf16",
+        "*bf16",
+        "*bf16",
+        "*i32",
+        "*i32",
+        "*i64",
+        "*bf16",
+        "*bf16",
+        "*fp32",
+        "*fp32",
+        "*fp32",
+        "i32",
+        "fp32",
+        "i32",
+        "i32",
+        "fp32",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "N",
+        "N",
+        "D",
+        "N"
+      ],
+      "constexpr_values": [
+        6144,
+        32,
+        8,
+        4,
+        16,
+        4,
+        128,
+        64
+      ],
+      "signature": {
+        "qkv_ptr": "*bf16",
+        "qw_ptr": "*bf16",
+        "kw_ptr": "*bf16",
+        "cos_ptr": "*bf16",
+        "sin_ptr": "*bf16",
+        "pos_ptr": "*i32",
+        "depth_ptr": "*i32",
+        "tree_ptr": "*i64",
+        "k_ptr": "*bf16",
+        "v_ptr": "*bf16",
+        "o_part_ptr": "*fp32",
+        "m_part_ptr": "*fp32",
+        "l_part_ptr": "*fp32",
+        "CAP": "i32",
+        "scale": "fp32",
+        "NSPLIT": "i32",
+        "SPLIT_LEN": "i32",
+        "eps": "fp32"
+      },
+      "constants": {
+        "ROW": 6144,
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 16,
+        "R": 4,
+        "D": 128,
+        "BLOCK_N": 64
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          16,
+          18,
+          19,
+          22,
+          24,
+          25
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 4,
+        "num_stages": 2,
+        "debug": null
+      },
+      "parsed_options": {
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 2,
+        "maxnreg": null,
+        "cluster_dims": [
+          1,
+          1,
+          1
+        ],
+        "ptx_version": null,
+        "enable_fp_fusion": true,
+        "allow_fp8e4nv": true,
+        "allow_fp8e4b15": false,
+        "default_dot_input_precision": "tf32",
+        "allowed_dot_input_precisions": [
+          "tf32",
+          "tf32x3",
+          "ieee"
+        ],
+        "max_num_imprecise_acc_default": 1073741824,
+        "extern_libs": [
+          [
+            "libdevice",
+            "<TRITON_LIBDEVICE>"
+          ]
+        ],
+        "debug": null,
+        "backend_name": "cuda"
+      }
+    },
+    {
+      "case": "gp16_basic_reduce_reused",
+      "kernel": "_reduce_kernel",
+      "grid": [
+        16,
+        32,
+        4
+      ],
+      "compile_requested": false,
+      "native_key_sha256": "ab5f1771b2e077cc5a2ceaa53103a72ecfc6abfe768ae179ec759b542ca0053b",
+      "jit_cache_key_sha256": "94e3784bb649beb8ec0573d85092d952027b4a0c53dfc60cce5b4962cef71956",
+      "jit_cache_key": "*fp32*fp32*fp32*bf16i32DDDDN((32, 4, 128, 2), {'num_warps': 1, 'debug': None})",
+      "bound_arguments": {
+        "o_part_ptr": {
+          "shape": [
+            16,
+            32,
+            4,
+            2,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "m_part_ptr": {
+          "shape": [
+            16,
+            32,
+            4,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "l_part_ptr": {
+          "shape": [
+            16,
+            32,
+            4,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "o_ptr": {
+          "shape": [
+            16,
+            4,
+            32,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "NSPLIT": 2,
+        "HQ": 32,
+        "R": 4,
+        "D": 128,
+        "NSP": 2
+      },
+      "signature_specialization": [
+        "*fp32",
+        "*fp32",
+        "*fp32",
+        "*bf16",
+        "i32",
+        "D",
+        "D",
+        "D",
+        "D",
+        "N"
+      ],
+      "constexpr_values": [
+        32,
+        4,
+        128,
+        2
+      ],
+      "signature": {
+        "o_part_ptr": "*fp32",
+        "m_part_ptr": "*fp32",
+        "l_part_ptr": "*fp32",
+        "o_ptr": "*bf16",
+        "NSPLIT": "i32"
+      },
+      "constants": {
+        "HQ": 32,
+        "R": 4,
+        "D": 128,
+        "NSP": 2
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          5,
+          7
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 1,
+        "debug": null
+      },
+      "parsed_options": {
+        "num_warps": 1,
+        "num_ctas": 1,
+        "num_stages": 3,
+        "maxnreg": null,
+        "cluster_dims": [
+          1,
+          1,
+          1
+        ],
+        "ptx_version": null,
+        "enable_fp_fusion": true,
+        "allow_fp8e4nv": true,
+        "allow_fp8e4b15": false,
+        "default_dot_input_precision": "tf32",
+        "allowed_dot_input_precisions": [
+          "tf32",
+          "tf32x3",
+          "ieee"
+        ],
+        "max_num_imprecise_acc_default": 1073741824,
+        "extern_libs": [
+          [
+            "libdevice",
+            "<TRITON_LIBDEVICE>"
+          ]
+        ],
+        "debug": null,
+        "backend_name": "cuda"
+      }
+    },
+    {
+      "case": "gp32_large",
+      "kernel": "_fused_tree_split_kernel",
+      "grid": [
+        8,
+        8,
+        2
+      ],
+      "compile_requested": true,
+      "native_key_sha256": "1c76c0deea9c8061878fbd0e931c0b5c57e3f53af095ad7b6518e94a5c37bc13",
+      "jit_cache_key_sha256": "31b334eb347217c4b249f9c2bccf26c6500c1f391c247ceedded3e347795af53",
+      "jit_cache_key": "*bf16*bf16*bf16*bf16*bf16*i32*i32*i64*bf16*bf16*fp32*fp32*fp32i32fp32i32i32fp32DDDDDDDDDDDDDDNNDN((6144, 32, 8, 4, 32, 8, 128, 128), {'num_warps': 8, 'num_stages': 3, 'debug': None})",
+      "bound_arguments": {
+        "qkv_ptr": {
+          "shape": [
+            64,
+            6144
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "qw_ptr": {
+          "shape": [
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "kw_ptr": {
+          "shape": [
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "cos_ptr": {
+          "shape": [
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "sin_ptr": {
+          "shape": [
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "pos_ptr": {
+          "shape": [
+            8
+          ],
+          "dtype": "torch.int32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "depth_ptr": {
+          "shape": [
+            8
+          ],
+          "dtype": "torch.int32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "tree_ptr": {
+          "shape": [
+            8
+          ],
+          "dtype": "torch.int64",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "k_ptr": {
+          "shape": [
+            8,
+            8,
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "v_ptr": {
+          "shape": [
+            8,
+            8,
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "o_part_ptr": {
+          "shape": [
+            8,
+            32,
+            8,
+            2,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "m_part_ptr": {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "l_part_ptr": {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "CAP": 768,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 2,
+        "SPLIT_LEN": 384,
+        "eps": 1e-06,
+        "ROW": 6144,
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 8,
+        "D": 128,
+        "BLOCK_N": 128
+      },
+      "signature_specialization": [
+        "*bf16",
+        "*bf16",
+        "*bf16",
+        "*bf16",
+        "*bf16",
+        "*i32",
+        "*i32",
+        "*i64",
+        "*bf16",
+        "*bf16",
+        "*fp32",
+        "*fp32",
+        "*fp32",
+        "i32",
+        "fp32",
+        "i32",
+        "i32",
+        "fp32",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "N",
+        "N",
+        "D",
+        "N"
+      ],
+      "constexpr_values": [
+        6144,
+        32,
+        8,
+        4,
+        32,
+        8,
+        128,
+        128
+      ],
+      "signature": {
+        "qkv_ptr": "*bf16",
+        "qw_ptr": "*bf16",
+        "kw_ptr": "*bf16",
+        "cos_ptr": "*bf16",
+        "sin_ptr": "*bf16",
+        "pos_ptr": "*i32",
+        "depth_ptr": "*i32",
+        "tree_ptr": "*i64",
+        "k_ptr": "*bf16",
+        "v_ptr": "*bf16",
+        "o_part_ptr": "*fp32",
+        "m_part_ptr": "*fp32",
+        "l_part_ptr": "*fp32",
+        "CAP": "i32",
+        "scale": "fp32",
+        "NSPLIT": "i32",
+        "SPLIT_LEN": "i32",
+        "eps": "fp32"
+      },
+      "constants": {
+        "ROW": 6144,
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 8,
+        "D": 128,
+        "BLOCK_N": 128
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          16,
+          18,
+          19,
+          22,
+          24,
+          25
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 8,
+        "num_stages": 3,
+        "debug": null
+      },
+      "parsed_options": {
+        "num_warps": 8,
+        "num_ctas": 1,
+        "num_stages": 3,
+        "maxnreg": null,
+        "cluster_dims": [
+          1,
+          1,
+          1
+        ],
+        "ptx_version": null,
+        "enable_fp_fusion": true,
+        "allow_fp8e4nv": true,
+        "allow_fp8e4b15": false,
+        "default_dot_input_precision": "tf32",
+        "allowed_dot_input_precisions": [
+          "tf32",
+          "tf32x3",
+          "ieee"
+        ],
+        "max_num_imprecise_acc_default": 1073741824,
+        "extern_libs": [
+          [
+            "libdevice",
+            "<TRITON_LIBDEVICE>"
+          ]
+        ],
+        "debug": null,
+        "backend_name": "cuda"
+      }
+    },
+    {
+      "case": "gp32_large_reduce_reused",
+      "kernel": "_reduce_kernel",
+      "grid": [
+        8,
+        32,
+        8
+      ],
+      "compile_requested": false,
+      "native_key_sha256": "1b4483909245218e4f4af2482f0333936dabc0efbbeccf387e5e20153a25d6b0",
+      "jit_cache_key_sha256": "bab7c8572728f3daa2439503bb553655c5dbeaff5c6c00b1d82903f696aa87b1",
+      "jit_cache_key": "*fp32*fp32*fp32*bf16i32DDDDN((32, 8, 128, 2), {'num_warps': 1, 'debug': None})",
+      "bound_arguments": {
+        "o_part_ptr": {
+          "shape": [
+            8,
+            32,
+            8,
+            2,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "m_part_ptr": {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "l_part_ptr": {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "o_ptr": {
+          "shape": [
+            8,
+            8,
+            32,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "NSPLIT": 2,
+        "HQ": 32,
+        "R": 8,
+        "D": 128,
+        "NSP": 2
+      },
+      "signature_specialization": [
+        "*fp32",
+        "*fp32",
+        "*fp32",
+        "*bf16",
+        "i32",
+        "D",
+        "D",
+        "D",
+        "D",
+        "N"
+      ],
+      "constexpr_values": [
+        32,
+        8,
+        128,
+        2
+      ],
+      "signature": {
+        "o_part_ptr": "*fp32",
+        "m_part_ptr": "*fp32",
+        "l_part_ptr": "*fp32",
+        "o_ptr": "*bf16",
+        "NSPLIT": "i32"
+      },
+      "constants": {
+        "HQ": 32,
+        "R": 8,
+        "D": 128,
+        "NSP": 2
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          5,
+          7
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 1,
+        "debug": null
+      },
+      "parsed_options": {
+        "num_warps": 1,
+        "num_ctas": 1,
+        "num_stages": 3,
+        "maxnreg": null,
+        "cluster_dims": [
+          1,
+          1,
+          1
+        ],
+        "ptx_version": null,
+        "enable_fp_fusion": true,
+        "allow_fp8e4nv": true,
+        "allow_fp8e4b15": false,
+        "default_dot_input_precision": "tf32",
+        "allowed_dot_input_precisions": [
+          "tf32",
+          "tf32x3",
+          "ieee"
+        ],
+        "max_num_imprecise_acc_default": 1073741824,
+        "extern_libs": [
+          [
+            "libdevice",
+            "<TRITON_LIBDEVICE>"
+          ]
+        ],
+        "debug": null,
+        "backend_name": "cuda"
+      }
+    },
+    {
+      "case": "gp32_small_tile",
+      "kernel": "_fused_tree_split_kernel",
+      "grid": [
+        8,
+        8,
+        2
+      ],
+      "compile_requested": true,
+      "native_key_sha256": "b4322f434d2ae5e9261a2b9cd41e9214c35d021f6b497a4cec0122716d643d62",
+      "jit_cache_key_sha256": "bc5508308ae400127f80c7ca133fe6df1bfcdd36c7e45183f681d9575fce18a4",
+      "jit_cache_key": "*bf16*bf16*bf16*bf16*bf16*i32*i32*i64*bf16*bf16*fp32*fp32*fp32i32fp32i32i32fp32DDDDDDDDDDDDDDNNDN((6144, 32, 8, 4, 32, 8, 128, 32), {'num_warps': 4, 'num_stages': 3, 'debug': None})",
+      "bound_arguments": {
+        "qkv_ptr": {
+          "shape": [
+            64,
+            6144
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "qw_ptr": {
+          "shape": [
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "kw_ptr": {
+          "shape": [
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "cos_ptr": {
+          "shape": [
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "sin_ptr": {
+          "shape": [
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "pos_ptr": {
+          "shape": [
+            8
+          ],
+          "dtype": "torch.int32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "depth_ptr": {
+          "shape": [
+            8
+          ],
+          "dtype": "torch.int32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "tree_ptr": {
+          "shape": [
+            8
+          ],
+          "dtype": "torch.int64",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "k_ptr": {
+          "shape": [
+            8,
+            8,
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "v_ptr": {
+          "shape": [
+            8,
+            8,
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "o_part_ptr": {
+          "shape": [
+            8,
+            32,
+            8,
+            2,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "m_part_ptr": {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "l_part_ptr": {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "CAP": 768,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 2,
+        "SPLIT_LEN": 384,
+        "eps": 1e-06,
+        "ROW": 6144,
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 8,
+        "D": 128,
+        "BLOCK_N": 32
+      },
+      "signature_specialization": [
+        "*bf16",
+        "*bf16",
+        "*bf16",
+        "*bf16",
+        "*bf16",
+        "*i32",
+        "*i32",
+        "*i64",
+        "*bf16",
+        "*bf16",
+        "*fp32",
+        "*fp32",
+        "*fp32",
+        "i32",
+        "fp32",
+        "i32",
+        "i32",
+        "fp32",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "D",
+        "N",
+        "N",
+        "D",
+        "N"
+      ],
+      "constexpr_values": [
+        6144,
+        32,
+        8,
+        4,
+        32,
+        8,
+        128,
+        32
+      ],
+      "signature": {
+        "qkv_ptr": "*bf16",
+        "qw_ptr": "*bf16",
+        "kw_ptr": "*bf16",
+        "cos_ptr": "*bf16",
+        "sin_ptr": "*bf16",
+        "pos_ptr": "*i32",
+        "depth_ptr": "*i32",
+        "tree_ptr": "*i64",
+        "k_ptr": "*bf16",
+        "v_ptr": "*bf16",
+        "o_part_ptr": "*fp32",
+        "m_part_ptr": "*fp32",
+        "l_part_ptr": "*fp32",
+        "CAP": "i32",
+        "scale": "fp32",
+        "NSPLIT": "i32",
+        "SPLIT_LEN": "i32",
+        "eps": "fp32"
+      },
+      "constants": {
+        "ROW": 6144,
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 8,
+        "D": 128,
+        "BLOCK_N": 32
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          16,
+          18,
+          19,
+          22,
+          24,
+          25
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 4,
+        "num_stages": 3,
+        "debug": null
+      },
+      "parsed_options": {
+        "num_warps": 4,
+        "num_ctas": 1,
+        "num_stages": 3,
+        "maxnreg": null,
+        "cluster_dims": [
+          1,
+          1,
+          1
+        ],
+        "ptx_version": null,
+        "enable_fp_fusion": true,
+        "allow_fp8e4nv": true,
+        "allow_fp8e4b15": false,
+        "default_dot_input_precision": "tf32",
+        "allowed_dot_input_precisions": [
+          "tf32",
+          "tf32x3",
+          "ieee"
+        ],
+        "max_num_imprecise_acc_default": 1073741824,
+        "extern_libs": [
+          [
+            "libdevice",
+            "<TRITON_LIBDEVICE>"
+          ]
+        ],
+        "debug": null,
+        "backend_name": "cuda"
+      }
+    },
+    {
+      "case": "gp32_small_tile_reduce_reused",
+      "kernel": "_reduce_kernel",
+      "grid": [
+        8,
+        32,
+        8
+      ],
+      "compile_requested": false,
+      "native_key_sha256": "1b4483909245218e4f4af2482f0333936dabc0efbbeccf387e5e20153a25d6b0",
+      "jit_cache_key_sha256": "bab7c8572728f3daa2439503bb553655c5dbeaff5c6c00b1d82903f696aa87b1",
+      "jit_cache_key": "*fp32*fp32*fp32*bf16i32DDDDN((32, 8, 128, 2), {'num_warps': 1, 'debug': None})",
+      "bound_arguments": {
+        "o_part_ptr": {
+          "shape": [
+            8,
+            32,
+            8,
+            2,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "m_part_ptr": {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "l_part_ptr": {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "o_ptr": {
+          "shape": [
+            8,
+            8,
+            32,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        "NSPLIT": 2,
+        "HQ": 32,
+        "R": 8,
+        "D": 128,
+        "NSP": 2
+      },
+      "signature_specialization": [
+        "*fp32",
+        "*fp32",
+        "*fp32",
+        "*bf16",
+        "i32",
+        "D",
+        "D",
+        "D",
+        "D",
+        "N"
+      ],
+      "constexpr_values": [
+        32,
+        8,
+        128,
+        2
+      ],
+      "signature": {
+        "o_part_ptr": "*fp32",
+        "m_part_ptr": "*fp32",
+        "l_part_ptr": "*fp32",
+        "o_ptr": "*bf16",
+        "NSPLIT": "i32"
+      },
+      "constants": {
+        "HQ": 32,
+        "R": 8,
+        "D": 128,
+        "NSP": 2
+      },
+      "attrs": {
+        "divisible_by_16": [
+          0,
+          1,
+          2,
+          3,
+          5,
+          7
+        ],
+        "equal_to_1": []
+      },
+      "options_explicit": {
+        "num_warps": 1,
+        "debug": null
+      },
+      "parsed_options": {
+        "num_warps": 1,
+        "num_ctas": 1,
+        "num_stages": 3,
+        "maxnreg": null,
+        "cluster_dims": [
+          1,
+          1,
+          1
+        ],
+        "ptx_version": null,
+        "enable_fp_fusion": true,
+        "allow_fp8e4nv": true,
+        "allow_fp8e4b15": false,
+        "default_dot_input_precision": "tf32",
+        "allowed_dot_input_precisions": [
+          "tf32",
+          "tf32x3",
+          "ieee"
+        ],
+        "max_num_imprecise_acc_default": 1073741824,
+        "extern_libs": [
+          [
+            "libdevice",
+            "<TRITON_LIBDEVICE>"
+          ]
+        ],
+        "debug": null,
+        "backend_name": "cuda"
+      }
+    }
+  ],
+  "wrapper_launch_receipt": [
+    {
+      "case": "gp16_basic",
+      "kernel": "_fused_tree_split_kernel",
+      "compile_requested": true,
+      "grid": [
+        16,
+        8,
+        2
+      ],
+      "args": [
+        {
+          "shape": [
+            64,
+            6144
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            16
+          ],
+          "dtype": "torch.int32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            4
+          ],
+          "dtype": "torch.int32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            4
+          ],
+          "dtype": "torch.int64",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            16,
+            8,
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            16,
+            8,
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            16,
+            32,
+            4,
+            2,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            16,
+            32,
+            4,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            16,
+            32,
+            4,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        768,
+        0.08838834764831843,
+        2,
+        384,
+        1e-06
+      ],
+      "kwargs": {
+        "ROW": 6144,
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 16,
+        "R": 4,
+        "D": 128,
+        "BLOCK_N": 64,
+        "num_warps": 4,
+        "num_stages": 2
+      }
+    },
+    {
+      "case": "gp16_basic_reduce_reused",
+      "kernel": "_reduce_kernel",
+      "compile_requested": false,
+      "grid": [
+        16,
+        32,
+        4
+      ],
+      "args": [
+        {
+          "shape": [
+            16,
+            32,
+            4,
+            2,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            16,
+            32,
+            4,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            16,
+            32,
+            4,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            16,
+            4,
+            32,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        2
+      ],
+      "kwargs": {
+        "HQ": 32,
+        "R": 4,
+        "D": 128,
+        "NSP": 2,
+        "num_warps": 1
+      }
+    },
+    {
+      "case": "gp32_large",
+      "kernel": "_fused_tree_split_kernel",
+      "compile_requested": true,
+      "grid": [
+        8,
+        8,
+        2
+      ],
+      "args": [
+        {
+          "shape": [
+            64,
+            6144
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8
+          ],
+          "dtype": "torch.int32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8
+          ],
+          "dtype": "torch.int32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8
+          ],
+          "dtype": "torch.int64",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            8,
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            8,
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            32,
+            8,
+            2,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        768,
+        0.08838834764831843,
+        2,
+        384,
+        1e-06
+      ],
+      "kwargs": {
+        "ROW": 6144,
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 8,
+        "D": 128,
+        "BLOCK_N": 128,
+        "num_warps": 8,
+        "num_stages": 3
+      }
+    },
+    {
+      "case": "gp32_large_reduce_reused",
+      "kernel": "_reduce_kernel",
+      "compile_requested": false,
+      "grid": [
+        8,
+        32,
+        8
+      ],
+      "args": [
+        {
+          "shape": [
+            8,
+            32,
+            8,
+            2,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            8,
+            32,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        2
+      ],
+      "kwargs": {
+        "HQ": 32,
+        "R": 8,
+        "D": 128,
+        "NSP": 2,
+        "num_warps": 1
+      }
+    },
+    {
+      "case": "gp32_small_tile",
+      "kernel": "_fused_tree_split_kernel",
+      "compile_requested": true,
+      "grid": [
+        8,
+        8,
+        2
+      ],
+      "args": [
+        {
+          "shape": [
+            64,
+            6144
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8
+          ],
+          "dtype": "torch.int32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8
+          ],
+          "dtype": "torch.int32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8
+          ],
+          "dtype": "torch.int64",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            8,
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            8,
+            768,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            32,
+            8,
+            2,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        768,
+        0.08838834764831843,
+        2,
+        384,
+        1e-06
+      ],
+      "kwargs": {
+        "ROW": 6144,
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 8,
+        "D": 128,
+        "BLOCK_N": 32,
+        "num_warps": 4,
+        "num_stages": 3
+      }
+    },
+    {
+      "case": "gp32_small_tile_reduce_reused",
+      "kernel": "_reduce_kernel",
+      "compile_requested": false,
+      "grid": [
+        8,
+        32,
+        8
+      ],
+      "args": [
+        {
+          "shape": [
+            8,
+            32,
+            8,
+            2,
+            128
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            32,
+            8,
+            2
+          ],
+          "dtype": "torch.float32",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        {
+          "shape": [
+            8,
+            8,
+            32,
+            128
+          ],
+          "dtype": "torch.bfloat16",
+          "device": "cuda:0",
+          "contiguous": true,
+          "aligned_to_16": true
+        },
+        2
+      ],
+      "kwargs": {
+        "HQ": 32,
+        "R": 8,
+        "D": 128,
+        "NSP": 2,
+        "num_warps": 1
+      }
+    }
+  ],
+  "compile_calls": 0,
+  "gpu_execution": false
+}

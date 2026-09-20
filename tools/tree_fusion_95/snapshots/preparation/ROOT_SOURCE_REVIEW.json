@@ -1,0 +1,19 @@
+{
+  "status": "ROOT_SOURCE_REVIEW_PASS_PENDING_COMPILER",
+  "reviewed_at_utc": "2026-09-20T11:20:59.171775+00:00",
+  "baseline_revision": 91,
+  "root_read": "Complete device181lines, wrapper140lines, selector381lines, full445line devicecontrols and fullselectorhostcontrols, minimal modeldiff, both reports/manifests. Exacthashes andsourceparse independentlychecked.",
+  "runtime_approved": false,
+  "source_scope": "TREE S2 C1 R4/8 only; currentselected geometry preserved; no main/candidate edits.",
+  "ownership": "Actual cacheloads n<pos; eachcurrentK/Vslot one split/tile writer; QKVcompleteimmutable; later consumers orderedbykernellaunch. Borrowedpartials shared only serialized; graph/events/streams/buffers retaineduntilconfirmeddrain.",
+  "semantics": "Separate64halfFP32 reductions; exactBF16norm/gain/rotaryproduct/add boundaries; alignedmixedtile order andsoftmaxrecurrence unchanged; depth-basedRoPE; exactoriginalreduce import.",
+  "host_admission": "Privateall36actualnorms plus3heterogeneousboundarytree fixtures; exactcachewrites andoutsidepreservation; finitepointwiseoutputs; readonlysnapshots;20sentry8scooperative12sreserve;ABBAmedian5 >3%bothorders; fataldrainquarantine.",
+  "remaining_risks": [
+    "Qmatrixlayout reduction/coalescing andregisterconversion lowering",
+    "unrolledcurrentKtailguards maybreakpipelining orspill",
+    "CPUoracles do notemulateGPUrsqrt/dot/greedy behavior",
+    "Coldcompile mayoverrun8scooperativewindow andfallback",
+    "3initial compilerfixtures cover axes, notall16allowedRconfiginteractions"
+  ],
+  "authorization": "Compilerinputpreparationonlyfor3smokefixtures. NoCIorofficialyet. No GPU correctness/performance claim."
+}

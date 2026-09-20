@@ -17,13 +17,13 @@ jobs:
           python-version: '3.11'
       - name: Install pinned compiler only
         run: python -m pip install --disable-pip-version-check triton==3.1.0
-      - name: Compile exactly two frozen Down S4 V2 producer and merge specializations
+      - name: Compile exactly three frozen small-tree fusion specializations
         run: |
-          python -B tools/down_s4_v2_94/preflight.py --require-tracked
-          timeout --signal=KILL 90s python -B tools/down_s4_v2_94/compile_down_s4.py
+          python -B tools/tree_fusion_95/preflight.py --require-tracked
+          timeout --signal=KILL 90s python -B tools/tree_fusion_95/compile_tree_fusion.py
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
           name: sm90-compiler-evidence
-          path: tools/down_s4_v2_94/compile-results/
+          path: tools/tree_fusion_95/compile-results/
           retention-days: 1

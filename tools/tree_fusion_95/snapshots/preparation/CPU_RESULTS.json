@@ -1,0 +1,10 @@
+{
+  "command": "python3 work/research/tree_fusion_device_fresh_95/cpu_controls.py",
+  "result": "PASS",
+  "tests": 9,
+  "geometry_cases": 7078,
+  "dispatch_cases": 16,
+  "elapsed_seconds": 0.74,
+  "dependencies": "Python standard library only",
+  "limitations": "No Triton/GPU lowering, rsqrt/dot equivalence, correctness, resource use, performance, or greedy validation established"
+}
