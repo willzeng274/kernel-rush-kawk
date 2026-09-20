@@ -80,6 +80,7 @@ if not _probe_triton_out_of_process():
 import ek_kernels  # noqa: E402
 from ek_kernels import _next_pow2, group_pad, plan_splits  # noqa: E402
 from ek_model import Qwen3  # noqa: E402
+from ek_select import capture_projection_path  # noqa: E402
 
 MAX_STEPS = 4096
 # Decode steps queued on the GPU ahead of the token being read back. Deeper
@@ -432,7 +433,7 @@ class _FastEngine:
     def _spec_bucket(self, need: int) -> int:
         return -(-need // 256) * 256
 
-    def _get_spec_graph(self, b: int, need: int):
+    def _get_spec_graph(self, b: int, need: int, selector_inputs=None):
         bucket = self._spec_bucket(need)
         key = ("spec", b, bucket)
         if key not in self.graphs and self.triton:
@@ -446,10 +447,12 @@ class _FastEngine:
                 self.model.use_gemv = False
                 self.model._gemv_choice = {}
         if key not in self.graphs:
-            self.graphs[key] = self._capture_spec(b, bucket)
+            self.graphs[key] = capture_projection_path(
+                self, b, bucket, _spec_q(b), selector_inputs,
+                self._capture_spec, _T_IMPORT + 210.0)
         return self.graphs[key]
 
-    def _get_graph(self, b: int, total: int):
+    def _get_graph(self, b: int, total: int, selector_inputs=None):
         bucket = self._spec_bucket(total)
         key = (b, bucket)
         if key not in self.graphs and self.triton:
@@ -462,7 +465,9 @@ class _FastEngine:
                 self.model.use_gemv = False
                 self.model._gemv_choice = {}
         if key not in self.graphs:
-            self.graphs[key] = self._capture(b, bucket)
+            self.graphs[key] = capture_projection_path(
+                self, b, bucket, 0, selector_inputs,
+                self._capture, _T_IMPORT + 210.0)
         return self.graphs[key]
 
     def _first_token(self, ids, pos, b, s, bias):
@@ -591,7 +596,7 @@ class _FastEngine:
 
         self._ensure_cache(b, total)
         self._ensure_host(b)
-        g = self._get_graph(b, total)
+        g = self._get_graph(b, total, (ids, pos, pad, s, bias))
 
         first = self._first_token(ids, pos, b, s, bias)
 
@@ -634,7 +639,7 @@ class _FastEngine:
         try:
             self._ensure_cache(b, need)
             self._ensure_host(b)
-            g = self._get_spec_graph(b, need)
+            g = self._get_spec_graph(b, need, (ids, pos, pad, s, bias))
         except Exception:
             # could not build a graph for this shape: finish the request on the
             # plain path rather than fail the whole run

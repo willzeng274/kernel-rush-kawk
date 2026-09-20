@@ -1,7 +1,7 @@
-# Public EngineKernel with isolated captured prefill
+# Public EngineKernel with corrected prefill and whole-path selection
 
-Derived from https://github.com/jeojdi1/EngineKernel/tree/51f8ee511c372edcfade2edd71f53cf79a0bf02f/engine . Author attribution and kernel comments are preserved. The three files ek_kernels.py, ek_model.py and ek_probe.py remain byte-identical to upstream.
+Derived from https://github.com/jeojdi1/EngineKernel/tree/51f8ee511c372edcfade2edd71f53cf79a0bf02f/engine . All original authorship and kernel comments remain. ek_kernels.py, ek_model.py and ek_probe.py are byte-identical to that public revision.
 
-Only engine.py changes: enable captured prefill by default, omit pool=self.pool for that capture so PyTorch gives it a private pool, retain its external position tensor in the cached tuple, and update the related comments. The result clone, speculation, kernel settings, model operations and other interfaces remain unchanged.
+The corrected captured prefill uses a private graph pool and retains its position input. That complete engine passed official submission70 at1001.5tokens/second, following the unchanged public engine’s986.3result in69.
 
-The author identifies51f8ee5 as the last platform-verified revision in commit7d7bd106. This derivative has not been GPU-validated or submitted. Numerical correctness, memory and speed require the official evaluation. It is prepared pending exact baseline#69.
+This revision adds ek_select.py and graph-construction hooks. During warmup it compares complete fixed-prefix decode/verification across the already present cuBLAS, unsplit Triton and split/fused Triton paths. It retains the incumbent unless a challenger is at least2%faster, uses independent temporary graph pools and restores flags after production capture. Device kernels, weight layouts, speculation and prefill arithmetic are unchanged. GPU correctness and speed are evaluated by the official run; local checks cover source and host policy only.
