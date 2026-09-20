@@ -1,0 +1,54 @@
+{
+  "candidate": "krxfty_qkv_n32",
+  "source_set_sha256": "4e53f6e31dcb4e108563956062a8ed238d0c40fa7ff3bfb71c7ac5a50ef3995d",
+  "cases": [
+    "qkv_m64_n32_k64_w4_s3"
+  ],
+  "bounds": {
+    "single_worker": true,
+    "total_seconds": 90,
+    "case_seconds": 40,
+    "retry": false,
+    "expand_search": false
+  },
+  "kernel_sha256": "e4940ce29e52bd3e29123af8aac14094553346ba89dc7203ebfe97a110d5d804",
+  "original_gemm_sha256": "89bb37e315fa66694c6451ce5f5926ce9e1918b2a51c4131aae338125e9f3a4d",
+  "extraction": "Exact source spans including decorators for _norm_stats, _normed_tile and _skinny_kernel; no other function imported. Frozen full kernel source retained for AST/byte-span equality.",
+  "engine_files": {
+    "baseline.py": "ce943112630a01e6912fb240a90c20d9096d74789782b3ef327133a5f69abfcb",
+    "budget.py": "b53d94e1aaf19df1c6ea2f25bc7f4974d0298ea2d7197fc532e4f6d917dda4e3",
+    "engine.py": "3969a664a9013688be49acf2b66f453bf9930e0699ee2a9f46dadd4979eb9e8a",
+    "kernels/__init__.py": "34ae2a727bc6d643ece5040af4a9649c1072e4c436717c780bbdad25800f84f8",
+    "kernels/accept.py": "59de9460feb605e49b556f1c4c0afca3e28e6614f582e060d3279bbdc8f188d6",
+    "kernels/add_rmsnorm.py": "8a7943ba2bbdf4224d004e3a83629768d7a2890564dcac721a02becd72524608",
+    "kernels/attention.py": "791d6a53ca6e17571d931975fb6f5d08c0f0f20429cddd32eec7f77a70445f77",
+    "kernels/compact.py": "c7c1c6ef1d4822958e72c8afc769e4f3ceed836672ce9f4ea375c1366965772c",
+    "kernels/gateup64.py": "399aa701a6de264a840cd8e0f2cbd10f940fc711203c92732c6cb0d6a5e29533",
+    "kernels/gateup_n32.py": "7059cb67f089f9b1654347524347b4f559a91e355e88dfc9023c5048b341fe87",
+    "kernels/gemm.py": "89bb37e315fa66694c6451ce5f5926ce9e1918b2a51c4131aae338125e9f3a4d",
+    "kernels/m64_gateup_n32_selection.py": "1d934b029de83ab334256f61bb89190cc40cc831d1d67bf1e1dc3f0d350d86c6",
+    "kernels/m64_gateup_selection.py": "31ee3e1367eee0a4b7e04362fb1864404591dbbf4c48fb5512e07dc410fca361",
+    "kernels/m64_qkv_n32_selection.py": "ef7330d7bbaaed72d5e365d22472f7831d5982c0a3b509d5e3601da0332a26d5",
+    "kernels/rmsnorm.py": "2b94cc1921159102046b7e27dac718a6b4551d5333ef89622de8cc7e2809949b",
+    "kernels/rope.py": "7461f6b065837da04693e6e591add872e7ac5a005514d7886d188cf7aa183fc0",
+    "kernels/swiglu.py": "b5a0837230f0d1627d3b880f9121e8be69d1b539d315bc82c0d09fc3b156f2ee",
+    "model.py": "bd143de8618693e1d4aea971ceee52f63f8553dd30ef0dcbb56f6b40c90f70ed",
+    "pair_cache.py": "40a3b1985c25ff768d067e4aea171271d640c9dad46513242a0f8ce1b1ac4030",
+    "prompt_seed.py": "c71fb6f31fb3f10e65bb0470f31acd2545885109fb56b3bd737cbf1fc38db6b4",
+    "recycle.py": "af2cbf5831cde4fe52a2c15d876dc09c52ec79280585712bdc30db7d88a198a0",
+    "spec.py": "2084c5c1c33dd99a03f0da34a7cbb1d88148e6be7fa9a74b3b9b8458f49092b8"
+  },
+  "preparation_files": {
+    "CANDIDATE.diff": "22288b070d698af8de18b00398dadfd467df2d8a34415be54ac58506a3be1fad",
+    "CANDIDATE_AND_COMPILE_PLAN.json": "d30fb89c3fc15431202e5ac0b16de13c7786572da1e530ae4c83dee594b3a8a0",
+    "HOST_CHECKS.json": "14f3c229bb978c9d533af87c41821a8eb690ff8fd4ab043fe7ca7bafdca68abe",
+    "SOURCE_MANIFEST.json": "41d4c6ce8c7e09a2d3762e0c88745a39281b2f2073e24c2d7b0d1e3b84a50b91",
+    "SOURCE_SHA256.txt": "4e53f6e31dcb4e108563956062a8ed238d0c40fa7ff3bfb71c7ac5a50ef3995d",
+    "STATUS.json": "7a6eabd1403423be06de04c13bb878c66412ed6ee71d4015cb15b86f176e543a",
+    "trusted-engine.tar.gz": "ea935a1038f62b08cc4bbb167820ab2192693ce577596bad9729cbb6b2fe00ef"
+  },
+  "primary_files": {
+    "jit.py": "7542bf9254646331ed90ce16fe1bfb2caf87d77d748d84396aab44c8027d508b",
+    "nvidia_compiler.py": "a979896b9c0acfd41dd953b90bdc4b10968f7c0b45a286eae3f829aaddb2bb55"
+  }
+}

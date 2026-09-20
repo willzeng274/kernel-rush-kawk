@@ -1,0 +1,53 @@
+{
+  "status": "proposal_only_no_source_or_compiler_execution",
+  "candidate_id": "qkv_m64_n32_k64_w4_s3_sk1_fullgrid",
+  "scope": "Only M64 QKV; all incumbent selectors, gate/up, O, down, LM and other shapes remain authoritative",
+  "kernel_source": "work/candidates/krxfty_gateup_n32_on89/engine/kernels/gemm.py",
+  "kernel": "_skinny_kernel",
+  "wrapper_specification": "An isolated SkinnyMatmul subclass sets BLOCK_M=64, block_n=32, block_k=64, split_k=1, num_warps=4, num_stages=3, persist=0. Preserve existing kernel bytes. Surround with original add_rms_norm for the complete QKV call.",
+  "shape_MNK": [64, 6144, 2560],
+  "grid": [192],
+  "pointer_types": {
+    "a_ptr": "*bf16",
+    "w_ptr": "*bf16",
+    "c_ptr": "*bf16",
+    "part_ptr": "*bf16; alias c, unused",
+    "y_ptr": "*bf16; alias a, unused",
+    "wn_ptr": "*bf16; alias w, unused",
+    "xout_ptr": "*bf16; alias a, unused because NORM=False"
+  },
+  "pointer_contract": "All BF16 CUDA tensors contiguous and base addresses divisible by 16; a=[64,2560], w=[6144,2560], c=[64,6144]; c cannot share storage with inputs. Complete-call residual output is separately allocated and written only by add_rms_norm.",
+  "runtime_scalars": {
+    "M": 64,
+    "N": 6144,
+    "K": 2560,
+    "stride_am": 2560,
+    "stride_wn": 2560,
+    "k_per_split": 2560,
+    "num_tiles": 192,
+    "eps": 0.0
+  },
+  "constexpr": {
+    "BLOCK_M": 64,
+    "BLOCK_N": 32,
+    "BLOCK_K": 64,
+    "SPLIT_K": 1,
+    "NORM": false
+  },
+  "launch_options": {
+    "num_warps": 4,
+    "num_stages": 3,
+    "num_ctas": 1,
+    "enable_fp_fusion": true
+  },
+  "new_build_count": 1,
+  "existing_receipt_to_compare_without_rebuilding": "work/research/krxfty_wide_compile_fresh_88/artifact/A_qkv_main",
+  "minimal_compile_plan": [
+    "Freeze the unchanged kernel and proposed wrapper, hash all inputs, and parse only; do not import the full model.",
+    "Use pinned Triton3.1.0 native binder and specialization configuration with actual BF16 pointer dtypes/alignment and the exact runtime values above. Preserve actual signature, constexprs, divisibility/equal-to-one attributes, parsed backend options and native key. Do not copy old attributes or fabricate constexpr strides.",
+    "Authorize at most one sequential CPU-only sm90 build with CUDA12.4/PTXAS, no driver context or GPU execution. Bound the single build to40s and total worker to90s. No retries or sweep; stop on native-key/preflight mismatch or compiler failure.",
+    "Save TTIR/TTGIR/LLVM/PTX/cubins, compiler diagnostics, native records, register/shared/stack/spill metadata and hashes.",
+    "Independently verify m64n32k16 BF16/FP32 WGMMA with one four-warp group, 16-byte contiguous K copies, three operand stages and correctly drained copy/dot work, contiguous unique N ownership, forty K64 steps, one BF16 output cast, and no partial buffer accesses, local memory, stack or spills. Reject unexpected lowering or resource regressions rather than broadening the search."
+  ],
+  "later_measurement_condition": "Compiler validation alone never authorizes a performance conclusion. If root later chooses integration, place this optional comparison after existing N32 selection so it cannot steal incumbent selection budget; preserve budget reserve, owned asynchronous buffers and fatal failed-drain behavior. Compare all36 complete add_norm+QKV calls with original weights/norms, exact residual equality, finite pointwise BF16 error, both timing orders and >3% margin. Maintain one official test at a time."
+}
