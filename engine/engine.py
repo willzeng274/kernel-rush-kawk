@@ -176,6 +176,7 @@ class GraphPlan:
         rec.draft(self.nseen)
         self.cand.copy_(ver.verify())
         accept_paths(rec.blk, self.cand, rec.child_start, rec.child_list, rec.child_par,
+                     rec.masks, rec.depth,
                      self.done, self.nseen, ver.pos, self.limit, rec.root,
                      self.path_idx, self.path_len, self.acc_tokens, self.acc_count,
                      plan.cap, self.guard)

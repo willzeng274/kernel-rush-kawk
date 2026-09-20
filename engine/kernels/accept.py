@@ -7,11 +7,12 @@ one program per sequence, so the accept can sit inside the captured round graph
 between the verify that produced ``cand`` and the compact that consumes the
 path.
 
-The rule is exactly ``Recycler.accept``: start at the root (node 0) holding the
-token ``cand[0]``; at node ``p`` take the lowest-indexed child ``c`` whose
-drafted token equals the token the model predicted after ``p``
-(``blk[c] == cand[p]``); stop when no child matches. Verification is exact, so
-every token on that path is the one plain greedy decode would have produced.
+First retain the original lowest-indexed matching-child walk. For trees of at
+most 64 rows, find the deepest endpoint whose every ancestor edge satisfies
+``blk[c] == cand[parent[c]]``. Replace the original walk only when the new path
+emits strictly more tokens before the request limit; ties retain the original.
+Equal-depth alternatives use their lowest endpoint index. Every selected edge
+is verified against its own parent's full-model argmax.
 
 The tree template is flattened the way a CSR matrix is: ``child_start[p] ..
 child_start[p + 1]`` is node ``p``'s slice of ``child_list``, and
@@ -45,6 +46,7 @@ def flat_children(children: list[list[int]]) -> tuple[list[int], list[int], list
 
 @triton.jit
 def accept_kernel(blk_ptr, cand_ptr, child_start_ptr, child_list_ptr, child_par_ptr,
+                  masks_ptr, depth_ptr,
                   done_ptr, nseen_ptr, pos_ptr, limit_ptr,
                   root_ptr, path_idx_ptr, path_len_ptr, acc_tok_ptr, acc_cnt_ptr,
                   CAP, R: tl.constexpr, C: tl.constexpr, P: tl.constexpr,
@@ -97,6 +99,40 @@ def accept_kernel(blk_ptr, cand_ptr, child_start_ptr, child_list_ptr, child_par_
         cur = tl.where(found, c, cur)
         alive = found
 
+    if R <= 64 and MAXA < R - 1:
+        # A valid R-node tree with depth R-1 is a chain: its first-match path
+        # is already longest. Compile the extra selection away in that case.
+        # Each nonroot child occurs once in CSR. Summing distinct unsigned
+        # child bits is OR, including bit 63; padded slots never contribute.
+        bits = tl.full((P,), 1, tl.uint64) << cl.to(tl.uint64)
+        bad = tl.sum(tl.where((j < C) & (cl > 0) & ~hit, bits, 0), axis=0)
+        masks = tl.load(masks_ptr + j, mask=j < R, other=0).to(tl.uint64)
+        depth = tl.load(depth_ptr + j, mask=j < R, other=-1)
+        verified = (j < R) & ((masks & bad) == 0)
+        best_depth = tl.max(tl.where(verified, depth, -1), axis=0)
+        remaining = limit - n_prev
+        improve = live & (tl.minimum(best_depth + 1, remaining) >
+                          tl.minimum(alen + 1, remaining))
+        if improve:
+            endpoint = tl.min(tl.where(verified & (depth == best_depth), j, P), axis=0)
+            tok = tl.sum(tl.where(j == endpoint, cv, 0), axis=0)
+            tl.store(acc_tok_ptr + b * (MAXA + 1) + best_depth, tok)
+            # Reconstruct backwards entirely from the already loaded CSR and
+            # draft registers. Slot d-1 emits blk[node], then the endpoint's
+            # prediction above supplies the bonus token at slot best_depth.
+            node = endpoint
+            for step in range(MAXA):
+                d = best_depth - step
+                active = d > 0
+                slot = tl.min(tl.where((j < C) & (cl == node), j, P), axis=0)
+                parent = tl.sum(tl.where(j == slot, cp, 0), axis=0)
+                token = tl.sum(tl.where(j == slot, drafted, 0), axis=0)
+                offset = tl.maximum(d - 1, 0)
+                tl.store(path_idx_ptr + b * MAXA + offset, node, mask=active)
+                tl.store(acc_tok_ptr + b * (MAXA + 1) + offset, token, mask=active)
+                node = parent
+            alen = best_depth
+
     plen = tl.where(live, alen, -1)
     cnt = tl.where(live, alen + 1, 0)
     n_new = n_prev + cnt
@@ -111,7 +147,8 @@ def accept_kernel(blk_ptr, cand_ptr, child_start_ptr, child_list_ptr, child_par_
 
 
 def accept_paths(blk: torch.Tensor, cand: torch.Tensor, child_start: torch.Tensor,
-                 child_list: torch.Tensor, child_par: torch.Tensor, done: torch.Tensor,
+                 child_list: torch.Tensor, child_par: torch.Tensor,
+                 masks: torch.Tensor, depth: torch.Tensor, done: torch.Tensor,
                  nseen: torch.Tensor, pos: torch.Tensor, limit: torch.Tensor,
                  root: torch.Tensor, path_idx: torch.Tensor, path_len: torch.Tensor,
                  acc_tokens: torch.Tensor, acc_count: torch.Tensor, cap: int, guard: int) -> None:
@@ -128,6 +165,6 @@ def accept_paths(blk: torch.Tensor, cand: torch.Tensor, child_start: torch.Tenso
         raise ValueError(f"acc_tokens must be [{B}, {MAXA + 1}], got {tuple(acc_tokens.shape)}")
     C = child_list.numel()
     P = triton.next_power_of_2(max(R + 1, C))
-    accept_kernel[(B,)](blk, cand, child_start, child_list, child_par, done, nseen, pos, limit,
+    accept_kernel[(B,)](blk, cand, child_start, child_list, child_par, masks, depth, done, nseen, pos, limit,
                         root, path_idx, path_len, acc_tokens, acc_count,
                         cap, R=R, C=C, P=P, MAXA=MAXA, GUARD=guard, num_warps=1)
