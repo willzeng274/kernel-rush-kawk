@@ -72,6 +72,7 @@ class Qwen3(torch.nn.Module):
         self.zero_slot = torch.zeros(1024, dtype=torch.int64, device=device)
         self.arange_q = torch.arange(64, dtype=torch.int64, device=device)
         self._gemv_choice = {}
+        self.last_prefill = os.environ.get("ENGINE_LAST_PREFILL", "1") == "1"
         self.split_k = os.environ.get("ENGINE_SPLIT", "1") == "1"
         self.fuse_swiglu = os.environ.get("ENGINE_SWIGLU", "0") == "1"
         self.fuse_rope_verify = (os.environ.get("ENGINE_ROPE_VERIFY", "1") == "1"
@@ -294,7 +295,23 @@ class Qwen3(torch.nn.Module):
             k = k_cache[i][:, :, :s]
             v = v_cache[i][:, :, :s]
 
-            if self._sdpa_gqa:
+            last_only = self.last_prefill and i == len(self.layers) - 1 and s > 1
+            if last_only:
+                # All final-layer K/V were written above. Only the last query
+                # and residual can reach the head; padding is on the left.
+                q = q[:, :, -1:, :]
+                residual = residual.view(b, s, c.hidden_size)[:, -1, :]
+                last_bias = None if attn_bias is None else attn_bias[..., -1:, :]
+                kw = dict(attn_mask=last_bias, is_causal=False, scale=self.sm_scale)
+                if self._sdpa_gqa:
+                    kw["enable_gqa"] = True
+                else:
+                    rep = c.num_heads // c.num_kv_heads
+                    k, v = k.repeat_interleave(rep, 1), v.repeat_interleave(rep, 1)
+                # Keep asymmetric attention from changing the full-prefill
+                # cuDNN preference shared by the earlier layers.
+                o = F.scaled_dot_product_attention(q, k, v, **kw)
+            elif self._sdpa_gqa:
                 o = self._sdpa(q, k, v, attn_bias)
             else:
                 rep = c.num_heads // c.num_kv_heads
@@ -307,6 +324,8 @@ class Qwen3(torch.nn.Module):
             x = torch.matmul(o, layer["o_t"])
             x, residual = add_rms_norm(x, residual, layer["ln2"], c.rms_eps)
             x = self._mlp(x, layer)
+            if last_only:
+                return rms_norm(residual + x, self.final_norm, c.rms_eps)
 
         residual = residual + x
         # final norm belongs here: decode() applies it, so prefill must too or
