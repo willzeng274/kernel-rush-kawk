@@ -1,0 +1,109 @@
+{
+  "status": "PROPOSED_ONLY_NOT_RUN",
+  "target": {
+    "triton": "3.1.0",
+    "cuda_arch": 90,
+    "warp_size": 32,
+    "ptxas": "sm_90a"
+  },
+  "base_revision": 83,
+  "base_commit": "9a3e7ad5d4e763287a1e9b0de25a55281fab998d",
+  "source_tree_sha256": "58846308ed8fb9f2919ce4f4db8d60cb1dcdd50692dfe750cba46bb7d908b5e1",
+  "source_sha256": {
+    "recycle.py": "c314d41e93af5bc392c471a95a9d4fb3dba26d38da5796d65feb0ebb0e9a4323",
+    "pair_cache.py": "40a3b1985c25ff768d067e4aea171271d640c9dad46513242a0f8ce1b1ac4030"
+  },
+  "frozen_decorated_kernel_sha256": "06da897fa80c0f75aa5fc4c4ab0e96a023d0d751257c8e7fbcdfc67b38998600",
+  "kernel": "_draft_kernel",
+  "exact_compile_calls": 6,
+  "cases": [
+    {
+      "R": 4,
+      "K": 8,
+      "S": 3,
+      "SP": 7,
+      "VOCAB": 151936
+    },
+    {
+      "R": 8,
+      "K": 8,
+      "S": 4,
+      "SP": 9,
+      "VOCAB": 151936
+    },
+    {
+      "R": 16,
+      "K": 8,
+      "S": 5,
+      "SP": 11,
+      "VOCAB": 151936
+    },
+    {
+      "R": 32,
+      "K": 8,
+      "S": 6,
+      "SP": 13,
+      "VOCAB": 151936
+    },
+    {
+      "R": 42,
+      "K": 8,
+      "S": 7,
+      "SP": 15,
+      "VOCAB": 151936
+    },
+    {
+      "R": 64,
+      "K": 8,
+      "S": 8,
+      "SP": 17,
+      "VOCAB": 151936
+    }
+  ],
+  "pointer_signature": {
+    "root_ptr": "i64",
+    "table_ptr": "i32",
+    "parent_ptr": "i32",
+    "rank_ptr": "i32",
+    "spine_slot_ptr": "i32",
+    "spine_child_ptr": "i32",
+    "spine_ptr": "i64",
+    "nseen_ptr": "i32",
+    "anchor_ptr": "i32",
+    "blk_ptr": "i64",
+    "root_prev_ptr": "i64",
+    "node_keys_ptr": "i64",
+    "pair_keys_ptr": "i64",
+    "pair_values_ptr": "i32"
+  },
+  "constexpr": [
+    "K",
+    "R",
+    "S",
+    "SP",
+    "VOCAB"
+  ],
+  "launch": {
+    "grid": "(B,)",
+    "backend_options": {},
+    "effective_num_warps": 4,
+    "effective_num_stages": 3,
+    "pointer_attributes": "Derive with Triton JIT _get_config using aligned allocation-base pointer stubs; do not invent attributes."
+  },
+  "limits": {
+    "process_seconds": 180,
+    "per_case_seconds": 40,
+    "retries": 0
+  },
+  "scope": "Only changed draft: R4 chain/elision, R8/16/32 normal, R42 fallback B3, R64 maximum. K8 and vocab151936. No batch sweep; B is not constexpr. No unchanged publisher/model/accept compilation. Short-loop R2/R3 and custom K are outside this minimum experiment.",
+  "procedure": [
+    "Verify source-tree, recycle.py, pair_cache.py and decorated-kernel hashes before extraction.",
+    "Extract exact decorated draft bytes; import the unchanged _pair_slot from the exact frozen pair_cache.py. Do not import or allocate the CUDA model.",
+    "One CPU-only compile process; six cases in listed order, one compile call per case, existing empty backend options; retain TTIR, TTGIR, LLVM IR, PTX, cubin and ptxas diagnostics.",
+    "Inspect R4 to confirm compile-time branch elimination. Confirm parent/spine metadata reads are within R; pool addresses stay clamped; restoration loads are duplicate-predicated; pair rank0 additionally requires exact-key equality.",
+    "Confirm 0<=original0<VOCAB and distinct/equality/fresh/later-child predicates survive lowering; first-match accept is not part of this build and remains byte-identical.",
+    "Inspect scalar lane ownership and inherited draft load ordering without claiming GPU memory safety. No added blk read exists for the swap.",
+    "Record ptxas registers, shared memory, stack/spills, warnings and elapsed compile seconds per case. Compare retained base83 evidence where the specialization matches; R42 has no retained base83 compiler comparison.",
+    "Verify frozen hashes unchanged after the run. No GPU execution, official run, push or submission is authorized by this plan."
+  ]
+}
