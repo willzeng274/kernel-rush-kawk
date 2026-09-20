@@ -25,7 +25,7 @@ from pair_cache import PAIR_SLOTS, _pair_slot, _publish_pairs_kernel
 
 #: Rough acceptance probability of a child by its rank among a node's k
 #: candidates, used only to decide which tree nodes are worth a row.
-RANK_PRIOR = [0.55, 0.16, 0.08, 0.05, 0.035, 0.025, 0.02, 0.015]
+RANK_PRIOR = [0.40, 0.20, 0.12, 0.08, 0.06, 0.05, 0.04, 0.03]
 
 
 @dataclass
