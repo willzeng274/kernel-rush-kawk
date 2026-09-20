@@ -23,7 +23,9 @@ def interleaved_gemv_swiglu(
     I: tl.constexpr, BLOCK_N: tl.constexpr, BLOCK_K: tl.constexpr,
     MP: tl.constexpr,
 ):
-    tl.static_assert(BLOCK_N == 64 and BLOCK_K == 128 and MP == 16)
+    tl.static_assert(BLOCK_N == 64)
+    tl.static_assert(BLOCK_K == 128)
+    tl.static_assert(MP == 16)
     pid = tl.program_id(0)
     logical_n = pid * BLOCK_N + tl.arange(0, BLOCK_N)
     channels = logical_n // 2

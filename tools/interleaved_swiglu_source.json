@@ -2,7 +2,7 @@
   "scope": "CPU-only SM90 exact-source compile; no kernel/device execution",
   "base_commit": "96e8c4609694d3a62b04ca6b61ffe41648efb0eb",
   "triton": "3.1.0",
-  "source_audit": "Cleared by independent /root/interleaved_swiglu_audit_76 before copying/push",
+  "source_audit": "Original source cleared by independent auditor; assertion-only correction independently byte-verified and cleared by root before corrected retry",
   "sources": {
     "ordinary": {
       "accepted_submission": 73,
@@ -114,11 +114,12 @@
     },
     "interleaved": {
       "source_path": "work/research/interleaved_swiglu_76/kernel.py",
-      "source_sha256": "383ea6723ef1f47607cb5ec061910e52524d07c5b06b069d3f3cfb8c85190d26",
+      "source_sha256": "b4cd52420ea1a5c17b0e9de412cecce0b1ec93f188f13476f1b23db86291bd0c",
       "compiler_module": "interleaved_swiglu_kernel.py",
-      "compiler_module_sha256": "383ea6723ef1f47607cb5ec061910e52524d07c5b06b069d3f3cfb8c85190d26",
+      "compiler_module_sha256": "b4cd52420ea1a5c17b0e9de412cecce0b1ec93f188f13476f1b23db86291bd0c",
       "copy": "Byte-exact frozen author source",
-      "function": "interleaved_gemv_swiglu"
+      "function": "interleaved_gemv_swiglu",
+      "initial_rejected_source_sha256": "383ea6723ef1f47607cb5ec061910e52524d07c5b06b069d3f3cfb8c85190d26"
     }
   },
   "cases": [
@@ -164,5 +165,11 @@
       "kernel": "_gemv_swiglu_kernel",
       "m": 3
     }
-  ]
+  ],
+  "corrected_retry": {
+    "authorized_by": "root",
+    "initial_run_id": 35493585032,
+    "source_change": "Three independent static_asserts replace unsupported chained boolean; no other source changes",
+    "same_cases_and_options": true
+  }
 }
