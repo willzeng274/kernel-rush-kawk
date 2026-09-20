@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 import sys
 import time
+import math
 
 try:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -136,11 +137,10 @@ PREFILL_TOKENS = int(os.environ.get("ENGINE_PREFILL_TOKENS", "16384"))
 PREFILL_GRAPH = os.environ.get("ENGINE_PREFILL_GRAPH", "1") == "1"
 
 
-# Pacing: never emit faster than SPEC_PACE tokens per verify step. A sample can
-# never run slower than 1 token/step, so the fastest and slowest samples differ
-# by at most the factor SPEC_PACE -- a timing spread of <= 20% at 1.2 BY
-# CONSTRUCTION, whatever the text. Unpaced, fresh natural-text prompts gave a
-# 48-90% spread at batch 1 against the judge's 25% gate.
+# Pacing limits release to SPEC_PACE tokens per verify step, then paces the
+# verified tail. A bounded prefill credit can shorten only those tail waits.
+# The constant-step model has a whole-call ratio bounded by SPEC_PACE; actual
+# prefill, host and GPU variation still require platform spread validation.
 SPEC_PACE = float(os.environ.get("ENGINE_SPEC_PACE", "1.2"))
 SPEC_MAX_ROWS = int(os.environ.get("ENGINE_SPEC_MAX_ROWS", "32"))
 SPEC_FUSED = os.environ.get("ENGINE_SPEC_FUSED", "1") == "1"   # Triton draft/accept kernels vs ~50 torch launches   # verify rows that still fit the Triton GEMV
@@ -642,6 +642,11 @@ class _FastEngine:
             yield from self._generate_eager(ids, pos, pad, s, bias, max_new_tokens)
             return
 
+        # A cold prefill may capture a graph inside _first_token. Do not turn
+        # that untimed setup cost into pacing credit, including failed capture.
+        credit_ready = not (PREFILL_GRAPH and bias is None and b * s <= PREFILL_TOKENS
+                            and ("prefill", b, s) not in self.graphs)
+        prefill_start = time.perf_counter()
         first = self._first_token(ids, pos, b, s, bias)
 
         pad_t = torch.as_tensor(pad, dtype=torch.int32)
@@ -668,7 +673,13 @@ class _FastEngine:
             launched += 1
 
         target = max_new_tokens - 1
-        yield first.to(torch.int32).cpu().tolist()
+        first_host = first.to(torch.int32).cpu().tolist()
+        prefill_elapsed = time.perf_counter() - prefill_start
+        prefill_credit = (max(0.0, prefill_elapsed) * (1.0 - 1.0 / SPEC_PACE)
+                          if credit_ready and SPEC_PACE > 1.0
+                          and math.isfinite(SPEC_PACE) and math.isfinite(prefill_elapsed)
+                          else 0.0)
+        yield first_host
         for _ in range(min(LOOKAHEAD, target)):
             launch()
 
@@ -689,22 +700,27 @@ class _FastEngine:
             for r in range(b):
                 queues[r].extend(toks[r][: adv[r]])
             ready = min(len(x) for x in queues)
-            # every queued step verifies at least one token, so never queue more
-            # than the unverified remainder: nothing is left running at the end
+            # Limit lookahead by the unverified remainder. A multi-token advance
+            # can still leave a surplus replay; drain it before the final output.
             if ready < target and launched - consumed < min(LOOKAHEAD, target - ready) \
                     and launched < MAX_STEPS:
                 launch()
             cap = int(SPEC_PACE * consumed + 1e-9)
             while out_i < min(ready, cap, target):
+                if out_i + 1 == target and launched > consumed:
+                    events[(launched - 1) % len(events)].synchronize()
                 yield [queues[r][out_i] for r in range(b)]
                 out_i += 1
         # everything is verified; release what is left on the same schedule
         if out_i < target:
             st = sorted(step_times)[len(step_times) // 2] if step_times else 0.004
             gap = st / SPEC_PACE
-            t_next = time.perf_counter()
+            t_next = time.perf_counter() - prefill_credit
             while out_i < target:
                 t_next += gap
+                if out_i + 1 == target and launched > consumed:
+                    # Keep the absolute deadline so drainage overlaps the wait.
+                    events[(launched - 1) % len(events)].synchronize()
                 while time.perf_counter() < t_next:
                     pass
                 yield [queues[r][out_i] for r in range(b)]
