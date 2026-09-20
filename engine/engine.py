@@ -46,6 +46,7 @@ from kernels.accept import accept_paths
 from kernels.compact import compact_paths
 from model import Model, Plan, VerifyPlan
 from recycle import Recycler
+from pair_cache import PAIR_SLOTS, prompt_pairs
 from spec import NGramDrafter
 
 PICKER_BUDGET_S = 120.0
@@ -89,6 +90,13 @@ class GraphPlan:
             R = recycle_rows
             self.recycler = Recycler(model.cfg.vocab, B, R, recycle_k, dev)
             self.plan.recycler = self.recycler
+            pair_rows = max(1, B * min(PAIR_SLOTS, max(0, T - 2)))
+            self.host_pair_slots = torch.empty((pair_rows,), dtype=torch.int64, pin_memory=True)
+            self.host_pair_keys = torch.empty((pair_rows,), dtype=torch.int64, pin_memory=True)
+            self.host_pair_next = torch.empty((pair_rows, recycle_k), dtype=torch.int32, pin_memory=True)
+            self.seed_pair_slots = torch.empty((pair_rows,), dtype=torch.int64, device=dev)
+            self.seed_pair_keys = torch.empty((pair_rows,), dtype=torch.int64, device=dev)
+            self.seed_pair_next = torch.empty((pair_rows, recycle_k), dtype=torch.int32, device=dev)
             self.verify = VerifyPlan(self.plan, R, tree=True, recycler=self.recycler)
             self.cand = torch.empty((B, R), dtype=torch.int64, device=dev)
             self.maxa = self.recycler.maxa
@@ -126,7 +134,11 @@ class GraphPlan:
         stream.wait_stream(torch.cuda.current_stream())
         with torch.cuda.stream(stream):
             plan.tok.copy_(plan.prefill().argmax(dim=-1))
+            if self.recycler is not None:
+                self.recycler.root_prev.copy_(plan.ids[:, -1])
             for _ in range(steps):
+                if self.recycler is not None:
+                    self.recycler.root_prev.copy_(plan.tok)
                 plan.tok.copy_(plan.decode().argmax(dim=-1))
             if self.verify is not None:
                 self.verify.pos.copy_(plan.pos - 1)
@@ -153,8 +165,8 @@ class GraphPlan:
         round's accepted path into place, move ``pos`` past it, grow the next
         draft tree from ``root``, verify it, and accept the longest path.
 
-        The accept sits last so it consumes the verify it follows; the compact
-        at the head of the *next* replay is what acts on the path it wrote. That
+        Acceptance consumes this verify, then publishes accepted pair proposals.
+        The compact at the head of the *next* replay acts on the path it wrote. That
         ordering is what lets a whole round be one graph: no host value is read
         or written anywhere between the first kernel and the last.
         """
@@ -167,6 +179,7 @@ class GraphPlan:
                      self.done, self.nseen, ver.pos, self.limit, rec.root,
                      self.path_idx, self.path_len, self.acc_tokens, self.acc_count,
                      plan.cap, self.guard)
+        rec.publish_pairs(self.path_idx, self.path_len)
 
     def capture(self) -> None:
         plan = self.plan
@@ -256,6 +269,27 @@ class GraphPlan:
             self.recycle_cleanup_failed = True
             raise
 
+    def _seed_pair_table(self, input_ids: list[list[int]]) -> None:
+        """Reset every request's pair keys and upload its bounded sparse seed.
+
+        All buffers are plan-owned and all operations use the existing stream
+        and drain. Invalid keys make old values unreachable before any draft.
+        """
+        rec = self.recycler
+        rec.pair_keys.fill_(-1)
+        slots, keys, values = prompt_pairs(input_ids, rec.k)
+        n = len(slots)
+        if not n:
+            return
+        self.host_pair_slots.numpy()[:n] = slots
+        self.host_pair_keys.numpy()[:n] = keys
+        self.host_pair_next.numpy()[:n] = values
+        self.seed_pair_slots[:n].copy_(self.host_pair_slots[:n], non_blocking=True)
+        self.seed_pair_keys[:n].copy_(self.host_pair_keys[:n], non_blocking=True)
+        self.seed_pair_next[:n].copy_(self.host_pair_next[:n], non_blocking=True)
+        rec.pair_values.index_copy_(0, self.seed_pair_slots[:n], self.seed_pair_next[:n])
+        rec.pair_keys.index_copy_(0, self.seed_pair_slots[:n], self.seed_pair_keys[:n])
+
     def run_recycle(self, input_ids: list[list[int]], max_new_tokens: int):
         """Token-recycling loop: draft tree -> verify -> accept longest path -> compact.
 
@@ -276,6 +310,7 @@ class GraphPlan:
             B = self.B
             plan.ids.copy_(_ids_tensor(input_ids))
             self._step_prefill()
+            self._seed_pair_table(input_ids)
             first = plan.tok.tolist()
             if max_new_tokens == 1:
                 self._drain_recycle()
@@ -291,6 +326,7 @@ class GraphPlan:
             # path_len + 1 first, so the loop starts one slot early with no path.
             ver.pos.copy_(plan.pos - 1)
             rec.root.copy_(plan.tok)
+            rec.root_prev.copy_(plan.ids[:, -1])
             self.path_len.zero_()
             self.nseen.fill_(1)
             self.limit.fill_(max_new_tokens)
