@@ -302,7 +302,7 @@ class GraphPlan:
                         for b in range(B)]
             self._write_spine(drafters, queues, max_new_tokens, 0)
             rounds = accepted = 0
-            min_rounds = math.ceil((max_new_tokens - 1) / self.tau_floor) if max_new_tokens > 1 else 0
+            min_rounds = 0
             step_cap = self.maxa + 1  # most tokens one round can add to a sequence
             while yielded < max_new_tokens:
                 if self.launched == rounds:
