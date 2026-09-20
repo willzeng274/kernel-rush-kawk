@@ -42,6 +42,7 @@ except ImportError:  # the container ships numpy with transformers; this only ke
     np = None
 
 import budget
+from kernels.accept import accept_paths
 from kernels.compact import compact_paths
 from model import Model, Plan, VerifyPlan
 from recycle import Recycler
@@ -74,7 +75,7 @@ class GraphPlan:
         self.g_prefill: torch.cuda.CUDAGraph | None = None
         self.g_decode: torch.cuda.CUDAGraph | None = None
         self.g_verify: torch.cuda.CUDAGraph | None = None
-        self.g_advance: torch.cuda.CUDAGraph | None = None
+        self.g_round: torch.cuda.CUDAGraph | None = None
         self.depth_in_flight = 3
         self.host_tok = torch.empty((self.depth_in_flight, B), dtype=torch.int64, pin_memory=True)
         self.events = [torch.cuda.Event() for _ in range(self.depth_in_flight)]
@@ -90,16 +91,27 @@ class GraphPlan:
             self.plan.recycler = self.recycler
             self.verify = VerifyPlan(self.plan, R, tree=True, recycler=self.recycler)
             self.cand = torch.empty((B, R), dtype=torch.int64, device=dev)
-            self.host_cand = torch.empty((B, R), dtype=torch.int64, pin_memory=True)
-            self.host_blk = torch.empty((B, R), dtype=torch.int64, pin_memory=True)
-            depth = max(len([1 for _ in range(1)]), 1)
-            self.maxa = max(1, max(bin(m & ((1 << 64) - 1)).count("1") for m in self.recycler.template.masks) - 1)
+            self.maxa = self.recycler.maxa
+            self.guard = 2 * R
             self.path_idx = torch.zeros((B, self.maxa), dtype=torch.int32, device=dev)
             self.path_len = torch.zeros((B,), dtype=torch.int32, device=dev)
-            self.host_path_idx = torch.zeros((B, self.maxa), dtype=torch.int32, pin_memory=True)
-            self.host_path_len = torch.zeros((B,), dtype=torch.int32, pin_memory=True)
-            self.host_root = torch.zeros((B,), dtype=torch.int64, pin_memory=True)
-            self.host_spine = torch.full((B, self.recycler.S), -1, dtype=torch.int64, pin_memory=True)
+            # Round bookkeeping the accept kernel owns. ``nseen`` is the host's
+            # old ``len(queues[b])`` and ``done`` its frozen test, both kept on
+            # device so a round never waits for the host to decide anything.
+            self.nseen = torch.zeros((B,), dtype=torch.int32, device=dev)
+            self.done = torch.zeros((B,), dtype=torch.int32, device=dev)
+            self.limit = torch.zeros((1,), dtype=torch.int32, device=dev)
+            self.acc_tokens = torch.zeros((B, self.maxa + 1), dtype=torch.int64, device=dev)
+            self.acc_count = torch.zeros((B,), dtype=torch.int32, device=dev)
+            # Double buffers: the host reads slot t while the GPU fills slot t+1.
+            self.host_acc = torch.zeros((2, B, self.maxa + 1), dtype=torch.int64, pin_memory=True)
+            self.host_cnt = torch.zeros((2, B), dtype=torch.int32, pin_memory=True)
+            self.acc_events = [torch.cuda.Event() for _ in range(2)]
+            self.finish_event = torch.cuda.Event()
+            self.recycle_cleanup_failed = False
+            self.host_pool = torch.full((2, B, self.recycler.SP), -1, dtype=torch.int64, pin_memory=True)
+            self.host_anchor = torch.zeros((2, B), dtype=torch.int32, pin_memory=True)
+            self.launched = 0
             self.spine_min_match = int(os.environ.get("ENGINE_SPINE_MIN_MATCH", "3"))
         elif spec_k:
             self.verify = VerifyPlan(self.plan, spec_k + 1)
@@ -119,21 +131,42 @@ class GraphPlan:
             if self.verify is not None:
                 self.verify.pos.copy_(plan.pos - 1)
                 if self.recycler is not None:
+                    # Every kernel the round graph will replay, including the
+                    # accept, has to be compiled before the capture; a live
+                    # sequence with a huge limit takes the walk's real path.
                     self.recycler.root.copy_(plan.tok)
-                    self._advance()
+                    self.path_len.zero_()
+                    self.nseen.zero_()
+                    self.done.zero_()
+                    self.limit.fill_(1 << 30)
+                    self.recycler.spine.fill_(-1)
+                    self.recycler.spine_anchor.zero_()
+                    self._round()
                 else:
                     self.verify.blk.copy_(plan.tok[:, None].expand(-1, self.verify.R))
-                self.cand.copy_(self.verify.verify())
+                    self.cand.copy_(self.verify.verify())
         torch.cuda.current_stream().wait_stream(stream)
         torch.cuda.synchronize()
 
-    def _advance(self) -> None:
-        """Recycling round bookkeeping on device: compact the accepted path's
-        K/V, move ``pos`` past it, and grow the next draft tree from ``root``."""
-        plan, ver = self.plan, self.verify
+    def _round(self) -> None:
+        """One recycling round, end to end on device: compact the previous
+        round's accepted path into place, move ``pos`` past it, grow the next
+        draft tree from ``root``, verify it, and accept the longest path.
+
+        The accept sits last so it consumes the verify it follows; the compact
+        at the head of the *next* replay is what acts on the path it wrote. That
+        ordering is what lets a whole round be one graph: no host value is read
+        or written anywhere between the first kernel and the last.
+        """
+        plan, ver, rec = self.plan, self.verify, self.recycler
         compact_paths(plan.k_cache, plan.v_cache, ver.pos, self.path_idx, self.path_len)
         ver.pos.add_(self.path_len + 1)
-        self.recycler.draft()
+        rec.draft(self.nseen)
+        self.cand.copy_(ver.verify())
+        accept_paths(rec.blk, self.cand, rec.child_start, rec.child_list, rec.child_par,
+                     self.done, self.nseen, ver.pos, self.limit, rec.root,
+                     self.path_idx, self.path_len, self.acc_tokens, self.acc_count,
+                     plan.cap, self.guard)
 
     def capture(self) -> None:
         plan = self.plan
@@ -145,14 +178,14 @@ class GraphPlan:
         self.g_decode = torch.cuda.CUDAGraph()
         with torch.cuda.graph(self.g_decode):
             plan.tok.copy_(plan.decode().argmax(dim=-1))
-        if self.verify is not None:
+        if self.recycler is not None:
+            self.g_round = torch.cuda.CUDAGraph()
+            with torch.cuda.graph(self.g_round):
+                self._round()
+        elif self.verify is not None:
             self.g_verify = torch.cuda.CUDAGraph()
             with torch.cuda.graph(self.g_verify):
                 self.cand.copy_(self.verify.verify())
-        if self.recycler is not None:
-            self.g_advance = torch.cuda.CUDAGraph()
-            with torch.cuda.graph(self.g_advance):
-                self._advance()
         torch.cuda.synchronize()
         _log(f"captured graphs for B={self.B} T={self.T} new={self.max_new} in {time.perf_counter() - t0:.1f}s "
              f"(picker budget remaining {max(0.0, budget.remaining()):.0f}s)")
@@ -175,83 +208,147 @@ class GraphPlan:
         else:
             self.g_verify.replay()
 
-    def run_recycle(self, input_ids: list[list[int]], max_new_tokens: int):
-        """Token-recycling loop: draft tree -> verify -> accept longest path -> compact."""
-        plan, ver, rec = self.plan, self.verify, self.recycler
-        B, R = self.B, ver.R
-        plan.ids.copy_(_ids_tensor(input_ids))
-        self._step_prefill()
-        first = plan.tok.tolist()
-        yield first
-        yielded = 1
-        queues = [[first[b]] for b in range(B)]
-        pos_host = [self.T] * B
-        # pos is the root's slot at the start of each round; _advance adds
-        # path_len + 1, so the first round starts one slot early with no path.
-        ver.pos.copy_(plan.pos - 1)
-        self.host_root.copy_(plan.tok)
-        self.host_path_len.zero_()
-        rec.root.copy_(self.host_root, non_blocking=True)
-        self.path_len.copy_(self.host_path_len, non_blocking=True)
-        S = rec.S
-        drafters = [NGramDrafter(input_ids[b] + [first[b]], S, max_n=4, min_n=self.spine_min_match) for b in range(B)]
-        self.host_spine.fill_(-1)
-        for b in range(B):
-            sp = drafters[b].draft_or_none()
+    def _launch_round(self) -> None:
+        """Queue one round and the copy of its accepted tokens, fenced by an event."""
+        slot = self.launched % 2
+        if self.g_round is None:
+            self._round()
+        else:
+            self.g_round.replay()
+        self.host_acc[slot].copy_(self.acc_tokens, non_blocking=True)
+        self.host_cnt[slot].copy_(self.acc_count, non_blocking=True)
+        self.acc_events[slot].record()
+        self.launched += 1
+
+    def _write_spine(self, drafters, queues: list[list[int]], max_new_tokens: int, slot: int) -> None:
+        """Hand the next n-gram continuation to the device, tagged with the token
+        count it was taken at so the draft kernel can shift it by whatever the
+        round now in flight accepts.
+
+        The two pinned slots alternate per round: the copy this issues is only
+        guaranteed to have run once a later round's event has been waited on, and
+        that is two rounds away.
+        """
+        pool, anchor = self.host_pool[slot].numpy(), self.host_anchor[slot].numpy()
+        pool[:] = -1
+        for b, drafter in enumerate(drafters):
+            anchor[b] = len(queues[b])
+            if len(queues[b]) >= max_new_tokens:
+                continue
+            sp = drafter.draft_or_none()
             if sp:
-                self.host_spine[b, :len(sp)] = torch.tensor(sp)
-        rec.spine.copy_(self.host_spine, non_blocking=True)
-        rounds = accepted = 0
-        min_rounds = math.ceil((max_new_tokens - 1) / self.tau_floor) if max_new_tokens > 1 else 0
-        while yielded < max_new_tokens:
-            if self.g_advance is None:
-                self._advance()
-            else:
-                self.g_advance.replay()
-            self._step_verify()
-            self.host_cand.copy_(self.cand, non_blocking=True)
-            self.host_blk.copy_(ver.blk, non_blocking=True)
-            torch.cuda.current_stream().synchronize()
-            cand = self.host_cand.tolist()
-            blk = self.host_blk.tolist()
-            rounds += 1
-            lens, idxs, roots = [], [], []
-            for b in range(B):
-                if len(queues[b]) >= max_new_tokens or pos_host[b] + 2 * R >= plan.cap:
-                    # Frozen: re-verify the same block in place (len -1 leaves pos unchanged).
-                    lens.append(-1); idxs.append([0] * self.maxa); roots.append(queues[b][-1]); continue
-                toks, path = rec.accept(blk[b], cand[b])
-                queues[b].extend(toks)
-                drafters[b].extend(toks)
-                accepted += len(path)
-                lens.append(len(path))
-                idxs.append(path + [0] * (self.maxa - len(path)))
-                roots.append(toks[-1])
-                pos_host[b] += len(path) + 1
-            np_spine = self.host_spine.numpy()
-            np_spine[:] = -1
-            for b in range(B):
-                if len(queues[b]) >= max_new_tokens:
-                    continue
-                sp = drafters[b].draft_or_none()
-                if sp:
-                    np_spine[b, :len(sp)] = sp
-            rec.spine.copy_(self.host_spine, non_blocking=True)
-            np_len, np_idx, np_root = self.host_path_len.numpy(), self.host_path_idx.numpy(), self.host_root.numpy()
-            np_len[:] = lens
-            np_idx[:] = idxs
-            np_root[:] = roots
-            self.path_len.copy_(self.host_path_len, non_blocking=True)
-            self.path_idx.copy_(self.host_path_idx, non_blocking=True)
-            rec.root.copy_(self.host_root, non_blocking=True)
-            while yielded < max_new_tokens and all(len(q) > yielded for q in queues) and (
-                yielded < max_new_tokens - 1 or rounds >= min_rounds
-            ):
-                yield [q[yielded] for q in queues]
-                yielded += 1
-        self.stats = {"rounds": rounds, "accepted": accepted, "steps": max_new_tokens, "min_rounds": min_rounds}
-        _log(f"recycle: {rounds} rounds (min {min_rounds}) for {max_new_tokens} steps x {B} seqs, {accepted} extra tokens "
-             f"accepted ({(max_new_tokens - 1) * B / max(1, rounds * B):.2f} tokens per round per seq)")
+                pool[b, :len(sp)] = sp
+        self.recycler.spine.copy_(self.host_pool[slot], non_blocking=True)
+        self.recycler.spine_anchor.copy_(self.host_anchor[slot], non_blocking=True)
+
+    def _drain_recycle(self) -> None:
+        """Fence all queued round work and spine copies before releasing buffers.
+
+        Acceptance events precede the host's next spine copies, so waiting only
+        on the last acceptance event cannot make the final pinned slots reusable.
+        """
+        try:
+            self.finish_event.record()
+            self.finish_event.synchronize()
+        except BaseException:
+            # A failed drain cannot establish ownership of the pinned buffers
+            # or a healthy device state for fallback/reuse of this plan.
+            self.recycle_cleanup_failed = True
+            raise
+
+    def run_recycle(self, input_ids: list[list[int]], max_new_tokens: int):
+        """Token-recycling loop: draft tree -> verify -> accept longest path -> compact.
+
+        Every one of those steps is inside one captured graph, so a round is a
+        single replay and the host never sits between two of them. All the host
+        does per round is read that round's accepted tokens out of a pinned
+        buffer — one round late, because the next round is queued before the
+        previous one's event is waited on, which keeps the GPU busy across the
+        read.
+        """
+        if max_new_tokens <= 0:
+            return
+        if getattr(self, "recycle_cleanup_failed", False):
+            raise RuntimeError("recycle plan cannot be reused after a failed drain")
+        drained = False
+        try:
+            plan, ver, rec = self.plan, self.verify, self.recycler
+            B = self.B
+            plan.ids.copy_(_ids_tensor(input_ids))
+            self._step_prefill()
+            first = plan.tok.tolist()
+            if max_new_tokens == 1:
+                self._drain_recycle()
+                drained = True
+            yield first
+            if max_new_tokens == 1:
+                self.launched = 0
+                self.stats = {"rounds": 0, "accepted": 0, "steps": 1, "min_rounds": 0, "launched": 0}
+                return
+            yielded = 1
+            queues = [[first[b]] for b in range(B)]
+            # pos is the root's slot at the start of each round; the round graph adds
+            # path_len + 1 first, so the loop starts one slot early with no path.
+            ver.pos.copy_(plan.pos - 1)
+            rec.root.copy_(plan.tok)
+            self.path_len.zero_()
+            self.nseen.fill_(1)
+            self.limit.fill_(max_new_tokens)
+            self.done.fill_(int(1 >= max_new_tokens or self.T + self.guard >= plan.cap))
+            self.launched = 0
+            rec.spine.fill_(-1)
+            rec.spine_anchor.zero_()
+            drafters = [NGramDrafter(input_ids[b] + [first[b]], rec.SP, max_n=4, min_n=self.spine_min_match)
+                        for b in range(B)]
+            self._write_spine(drafters, queues, max_new_tokens, 0)
+            rounds = accepted = 0
+            min_rounds = math.ceil((max_new_tokens - 1) / self.tau_floor) if max_new_tokens > 1 else 0
+            step_cap = self.maxa + 1  # most tokens one round can add to a sequence
+            while yielded < max_new_tokens:
+                if self.launched == rounds:
+                    self._launch_round()
+                # One more round is certain when the padding floor still owes rounds,
+                # or when the one in flight cannot possibly fill the shortest queue.
+                # Launching only on a certainty means no round is ever wasted.
+                shortest = min(len(q) for q in queues)
+                if self.launched < min_rounds or shortest + (self.launched - rounds) * step_cap < max_new_tokens:
+                    self._launch_round()
+                slot = rounds % 2
+                self.acc_events[slot].synchronize()
+                counts = self.host_cnt[slot].tolist()
+                tokens = self.host_acc[slot].tolist()
+                rounds += 1
+                for b in range(B):
+                    n = counts[b]
+                    if not n:  # frozen: the block was re-verified in place
+                        continue
+                    new = tokens[b][:n]
+                    queues[b].extend(new)
+                    accepted += n - 1
+                    drafters[b].extend(new)
+                self._write_spine(drafters, queues, max_new_tokens, rounds % 2)
+                while yielded < max_new_tokens and all(len(q) > yielded for q in queues) and (
+                    yielded < max_new_tokens - 1 or rounds >= min_rounds
+                ):
+                    if yielded == max_new_tokens - 1:
+                        self._drain_recycle()
+                        drained = True
+                    yield [q[yielded] for q in queues]
+                    yielded += 1
+            self.stats = {"rounds": rounds, "accepted": accepted, "steps": max_new_tokens, "min_rounds": min_rounds,
+                          "launched": self.launched}
+            _log(f"recycle: {rounds} rounds (min {min_rounds}) for {max_new_tokens} steps x {B} seqs, {accepted} extra tokens "
+                 f"accepted ({(max_new_tokens - 1) * B / max(1, rounds * B):.2f} tokens per round per seq)")
+        finally:
+            if not drained and not getattr(self, "recycle_cleanup_failed", False):
+                original = sys.exc_info()[1]
+                if original is None:
+                    self._drain_recycle()
+                else:
+                    try:
+                        self._drain_recycle()
+                    except BaseException as cleanup_error:
+                        original.add_note(f"recycle cleanup also failed: {cleanup_error!r}")
 
     def run_spec(self, input_ids: list[list[int]], max_new_tokens: int):
         """Speculative loop: verify K drafts per sequence per round, yield steps
@@ -445,12 +542,14 @@ class Engine:
                     plan.capture()
                 except Exception as exc:  # eager execution is slower but produces the same tokens
                     _log(f"CUDA graph capture failed ({exc!r}); running eagerly")
-                    plan.g_prefill = plan.g_decode = plan.g_verify = None
+                    plan.g_prefill = plan.g_decode = plan.g_verify = plan.g_round = None
                     torch.cuda.synchronize()
             self.plans[key] = plan
         return plan
 
     def generate(self, input_ids: list[list[int]], max_new_tokens: int):
+        if getattr(self, "recycle_cleanup_failed", False):
+            raise RuntimeError("engine cannot be reused after a failed recycle drain")
         B, T = len(input_ids), len(input_ids[0])
         if any(len(row) != T for row in input_ids):
             raise ValueError("all prompts in a batch must have the same length")
@@ -469,13 +568,27 @@ class Engine:
             yield from self.fallback.generate(input_ids, max_new_tokens)
             return
         produced = 0
+        active = plan.run(input_ids, max_new_tokens)
         try:
-            for step in plan.run(input_ids, max_new_tokens):
+            for step in active:
                 produced += 1
                 yield step
         except Exception as exc:  # a host-side bug must not end the run: finish with the baseline
+            if getattr(plan, "recycler", None) is not None:
+                # An exception injected at our yield can leave the nested
+                # iterator suspended with work queued; drain before fallback.
+                active.close()
+            if getattr(plan, "recycle_cleanup_failed", False):
+                raise
             _log(f"custom generate failed after {produced} steps ({exc!r}); finishing with the native baseline")
             self._use_fallback()
             steps = list(self.fallback.generate(input_ids, max_new_tokens))
             for step in steps[produced:]:
                 yield step
+        finally:
+            if getattr(plan, "recycler", None) is not None:
+                try:
+                    active.close()
+                finally:
+                    if getattr(plan, "recycle_cleanup_failed", False):
+                        self.recycle_cleanup_failed = True
