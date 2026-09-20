@@ -1,0 +1,52 @@
+{
+  "gateup64_sha256": "399aa701a6de264a840cd8e0f2cbd10f940fc711203c92732c6cb0d6a5e29533",
+  "compile_harness_sha256": "df710addee0882277880c1abb145574add4a762d1ee66e5f9049d600304f8f1a",
+  "baseline_gemm_sha256": "3befdff39ae51ede9b2b8f6f0428271b99b378a143786ed66e6f1ab343a1822d",
+  "cases": [
+    {
+      "M": 64,
+      "I": 9728,
+      "K": 2560,
+      "dot_tile": [
+        64,
+        128
+      ],
+      "block_k": 128,
+      "num_stages": 2,
+      "num_warps": 4,
+      "grid": [
+        152
+      ]
+    },
+    {
+      "M": 64,
+      "I": 9728,
+      "K": 2560,
+      "dot_tile": [
+        64,
+        128
+      ],
+      "block_k": 64,
+      "num_stages": 3,
+      "num_warps": 4,
+      "grid": [
+        152
+      ]
+    }
+  ],
+  "cpu_validation": {
+    "python_ast": "pass",
+    "weight_row_coverage": "all 19456 original rows once per M64 call",
+    "output_coverage": "64 x 9728 elements once",
+    "k_coverage": "all 2560 columns once per projection for both BK choices",
+    "gpu_execution": false,
+    "compiler_execution": false
+  },
+  "independent_source_review": {
+    "status": "pass",
+    "coverage_casts_triton31_api_attrs": "approved",
+    "followup": "launcher restricted to the recorded aligned contiguous specialization",
+    "compiler_execution": false,
+    "gpu_execution": false
+  }
+}
