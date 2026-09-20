@@ -1,0 +1,168 @@
+{
+  "scope": "CPU-only SM90 exact-source compile; no kernel/device execution",
+  "base_commit": "96e8c4609694d3a62b04ca6b61ffe41648efb0eb",
+  "triton": "3.1.0",
+  "source_audit": "Cleared by independent /root/interleaved_swiglu_audit_76 before copying/push",
+  "sources": {
+    "ordinary": {
+      "accepted_submission": 73,
+      "source_path": "work/candidates/public_fenced_verify/engine/ek_kernels.py",
+      "source_sha256": "d1f8c8ce85d13fff3bd959636854b85e4f83e86681e359b5c5ead239ee0f4fa5",
+      "compiler_module": "interleaved_swiglu_controls.py",
+      "compiler_module_sha256": "b5e8a30f2db624fc2ebd2f837aa4f91729fb5b1953df9128ff38ca245a32944d",
+      "extraction": "Exact decorator/function source, dedented only; imports added",
+      "functions": [
+        {
+          "name": "_gemv_kernel",
+          "source_lines": [
+            224,
+            251
+          ],
+          "dedented_jit_sha256": "93422f591eeb174ddc5a81f17eaeb8db0ad1f44bfc8fb374f9bd5e1bdd0aff13",
+          "arguments": [
+            "X",
+            "W",
+            "Y",
+            "M",
+            "K",
+            "stride_xm",
+            "stride_wn",
+            "stride_ym",
+            "N",
+            "BLOCK_N",
+            "BLOCK_K",
+            "MP"
+          ]
+        },
+        {
+          "name": "_gemv_swiglu_kernel",
+          "source_lines": [
+            318,
+            354
+          ],
+          "dedented_jit_sha256": "3f51bbe0e93904c049cc44aaf71b79715db0d2019efdab00f935d63b0eda7cd0",
+          "arguments": [
+            "X",
+            "W",
+            "Y",
+            "M",
+            "K",
+            "stride_xm",
+            "stride_wn",
+            "stride_ym",
+            "I",
+            "BLOCK_N",
+            "BLOCK_K",
+            "MP"
+          ]
+        }
+      ]
+    },
+    "paired": {
+      "accepted_submission": 73,
+      "source_path": "work/candidates/public_fenced_verify/engine/ek_kernels.py",
+      "source_sha256": "d1f8c8ce85d13fff3bd959636854b85e4f83e86681e359b5c5ead239ee0f4fa5",
+      "compiler_module": "interleaved_swiglu_controls.py",
+      "compiler_module_sha256": "b5e8a30f2db624fc2ebd2f837aa4f91729fb5b1953df9128ff38ca245a32944d",
+      "extraction": "Exact decorator/function source, dedented only; imports added",
+      "functions": [
+        {
+          "name": "_gemv_kernel",
+          "source_lines": [
+            224,
+            251
+          ],
+          "dedented_jit_sha256": "93422f591eeb174ddc5a81f17eaeb8db0ad1f44bfc8fb374f9bd5e1bdd0aff13",
+          "arguments": [
+            "X",
+            "W",
+            "Y",
+            "M",
+            "K",
+            "stride_xm",
+            "stride_wn",
+            "stride_ym",
+            "N",
+            "BLOCK_N",
+            "BLOCK_K",
+            "MP"
+          ]
+        },
+        {
+          "name": "_gemv_swiglu_kernel",
+          "source_lines": [
+            318,
+            354
+          ],
+          "dedented_jit_sha256": "3f51bbe0e93904c049cc44aaf71b79715db0d2019efdab00f935d63b0eda7cd0",
+          "arguments": [
+            "X",
+            "W",
+            "Y",
+            "M",
+            "K",
+            "stride_xm",
+            "stride_wn",
+            "stride_ym",
+            "I",
+            "BLOCK_N",
+            "BLOCK_K",
+            "MP"
+          ]
+        }
+      ]
+    },
+    "interleaved": {
+      "source_path": "work/research/interleaved_swiglu_76/kernel.py",
+      "source_sha256": "383ea6723ef1f47607cb5ec061910e52524d07c5b06b069d3f3cfb8c85190d26",
+      "compiler_module": "interleaved_swiglu_kernel.py",
+      "compiler_module_sha256": "383ea6723ef1f47607cb5ec061910e52524d07c5b06b069d3f3cfb8c85190d26",
+      "copy": "Byte-exact frozen author source",
+      "function": "interleaved_gemv_swiglu"
+    }
+  },
+  "cases": [
+    {
+      "id": "ordinary_m3",
+      "kind": "ordinary",
+      "kernel": "_gemv_kernel",
+      "m": 3
+    },
+    {
+      "id": "interleaved_m3",
+      "kind": "interleaved",
+      "kernel": "interleaved_gemv_swiglu",
+      "m": 3
+    },
+    {
+      "id": "ordinary_m4",
+      "kind": "ordinary",
+      "kernel": "_gemv_kernel",
+      "m": 4
+    },
+    {
+      "id": "interleaved_m4",
+      "kind": "interleaved",
+      "kernel": "interleaved_gemv_swiglu",
+      "m": 4
+    },
+    {
+      "id": "ordinary_m16",
+      "kind": "ordinary",
+      "kernel": "_gemv_kernel",
+      "m": 16
+    },
+    {
+      "id": "interleaved_m16",
+      "kind": "interleaved",
+      "kernel": "interleaved_gemv_swiglu",
+      "m": 16
+    },
+    {
+      "id": "paired_m3",
+      "kind": "paired",
+      "kernel": "_gemv_swiglu_kernel",
+      "m": 3
+    }
+  ]
+}

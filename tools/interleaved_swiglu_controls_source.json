@@ -1,0 +1,54 @@
+{
+  "accepted_submission": 73,
+  "source_path": "work/candidates/public_fenced_verify/engine/ek_kernels.py",
+  "source_sha256": "d1f8c8ce85d13fff3bd959636854b85e4f83e86681e359b5c5ead239ee0f4fa5",
+  "compiler_module": "interleaved_swiglu_controls.py",
+  "compiler_module_sha256": "b5e8a30f2db624fc2ebd2f837aa4f91729fb5b1953df9128ff38ca245a32944d",
+  "extraction": "Exact decorator/function source, dedented only; imports added",
+  "functions": [
+    {
+      "name": "_gemv_kernel",
+      "source_lines": [
+        224,
+        251
+      ],
+      "dedented_jit_sha256": "93422f591eeb174ddc5a81f17eaeb8db0ad1f44bfc8fb374f9bd5e1bdd0aff13",
+      "arguments": [
+        "X",
+        "W",
+        "Y",
+        "M",
+        "K",
+        "stride_xm",
+        "stride_wn",
+        "stride_ym",
+        "N",
+        "BLOCK_N",
+        "BLOCK_K",
+        "MP"
+      ]
+    },
+    {
+      "name": "_gemv_swiglu_kernel",
+      "source_lines": [
+        318,
+        354
+      ],
+      "dedented_jit_sha256": "3f51bbe0e93904c049cc44aaf71b79715db0d2019efdab00f935d63b0eda7cd0",
+      "arguments": [
+        "X",
+        "W",
+        "Y",
+        "M",
+        "K",
+        "stride_xm",
+        "stride_wn",
+        "stride_ym",
+        "I",
+        "BLOCK_N",
+        "BLOCK_K",
+        "MP"
+      ]
+    }
+  ]
+}
