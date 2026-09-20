@@ -1,0 +1,8 @@
+{
+  "smoke_kernel_sha256": "b2199890ec13d3d7dfcfc4eee4ce6d2582613ba95261f647464874f4b07849b7",
+  "run_smoke_sha256": "f6b1cc5cf37fbdec064f9b1f1c90c386fc2b8a11936f59fb4555050d5c02aeb2",
+  "driver_bridge_sha256": "663b8308707deb2677ff7c97d17a3c0e771ef4f5af27fefc54c12b1639357011",
+  "offline_driver_sha256": "a7b537b29400988c67bcd81d07d0cdf48323339fcb284e0cb49ccb5e416fde9e",
+  "cuda_execution": false,
+  "source_path": "/Users/polyuser/Documents/Codex/2026-09-19/yse/work/research/cooperative_mlp_feasibility/smoke_kernel.py"
+}
