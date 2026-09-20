@@ -1,0 +1,690 @@
+{
+  "status": "ROOT_APPROVED_ONE_CPU_CI_ATTEMPT",
+  "CI_dispatched": false,
+  "compiler_base_commit": "ecc875e03e0b992f2d9e74e1eb80f32135839566",
+  "triton": "3.1.0",
+  "target": {
+    "backend": "cuda",
+    "capability": 90,
+    "warp_size": 32
+  },
+  "scope": "One future CPU-only CI attempt, 5 matched baseline/candidate pairs, 10 compiles. No GPU/model/official work.",
+  "sources": {
+    "baseline": {
+      "source_path": "work/candidates/krxfty_public_baseline/engine/kernels/attention.py",
+      "source_sha256": "e462ab6929f775c0a4a019a2796cc580bb117542989fc80a3b067b835298dd2a",
+      "kernel": "_split_kernel",
+      "decorated_kernel_sha256": "585b47984e1448cc72079abe6a3a9196c5fab463df60c587be17bd55c692cfcd",
+      "compiler_module_sha256": "6bb95cb696e59cdeddf9a8fd3b503a8a2dabe1dd152bf81082872e925c5028d4",
+      "frozen": true,
+      "snapshot": "tools/krxfty_prefix_sources/baseline_attention.py",
+      "compiler_module": "engine/krxfty_prefix_baseline.py"
+    },
+    "candidate": {
+      "source_path": "work/candidates/krxfty_prefix_attention/engine/kernels/attention.py",
+      "source_sha256": "1a1ac147769825c14730c8688b97b5e31c42b08cdeb88d3e344d110f39968ed2",
+      "kernel": "_split_kernel",
+      "decorated_kernel_sha256": "51e0dbbe7392710af3ac22c1edcd0f97b0c075949de2e120bee6e2c44cdb48dc",
+      "compiler_module_sha256": "d49050b64a0e39d31086b452f6d545c3f4007356551803a548dcb5050cbb4899",
+      "frozen": true,
+      "snapshot": "tools/krxfty_prefix_sources/candidate_attention.py",
+      "compiler_module": "engine/krxfty_prefix_candidate.py"
+    }
+  },
+  "pairs": [
+    {
+      "id": "b1_r64_bn64_split",
+      "batch": 1,
+      "prompt": 512,
+      "max_new": 32,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 896,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 11,
+        "SPLIT_LEN": 64
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 64,
+        "D": 128,
+        "BLOCK_N": 64,
+        "FINAL": false,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 4,
+        "num_stages": 2
+      },
+      "grid": [
+        1,
+        8,
+        88
+      ],
+      "natural_equal_to_one_folding": [],
+      "constructor": {
+        "work": 672,
+        "blocks": 11,
+        "requested_nsplit": 11,
+        "row_blocks": 8
+      }
+    },
+    {
+      "id": "b4_r16_bn128_split",
+      "batch": 4,
+      "prompt": 2048,
+      "max_new": 32,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 2432,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 6,
+        "SPLIT_LEN": 384
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 16,
+        "D": 128,
+        "BLOCK_N": 128,
+        "FINAL": false,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 8,
+        "num_stages": 3
+      },
+      "grid": [
+        4,
+        8,
+        12
+      ],
+      "natural_equal_to_one_folding": [],
+      "constructor": {
+        "work": 2160,
+        "blocks": 17,
+        "requested_nsplit": 8,
+        "row_blocks": 2
+      }
+    },
+    {
+      "id": "b16_r4_bn128_split",
+      "batch": 16,
+      "prompt": 512,
+      "max_new": 128,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 896,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 2,
+        "SPLIT_LEN": 384
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 16,
+        "R": 4,
+        "D": 128,
+        "BLOCK_N": 128,
+        "FINAL": false,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 4,
+        "num_stages": 3
+      },
+      "grid": [
+        16,
+        8,
+        2
+      ],
+      "natural_equal_to_one_folding": [],
+      "constructor": {
+        "work": 708,
+        "blocks": 6,
+        "requested_nsplit": 2,
+        "row_blocks": 1
+      }
+    },
+    {
+      "id": "b1_r64_bn32_split",
+      "batch": 1,
+      "prompt": 512,
+      "max_new": 32,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 896,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 11,
+        "SPLIT_LEN": 64
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 64,
+        "D": 128,
+        "BLOCK_N": 32,
+        "FINAL": false,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 4,
+        "num_stages": 3
+      },
+      "grid": [
+        1,
+        8,
+        88
+      ],
+      "natural_equal_to_one_folding": [],
+      "constructor": {
+        "work": 672,
+        "blocks": 21,
+        "requested_nsplit": 16,
+        "row_blocks": 8
+      }
+    },
+    {
+      "id": "b16_r4_bn128_final",
+      "batch": 16,
+      "prompt": 512,
+      "max_new": 128,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 896,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 1,
+        "SPLIT_LEN": 768
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 16,
+        "R": 4,
+        "D": 128,
+        "BLOCK_N": 128,
+        "FINAL": true,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 4,
+        "num_stages": 3
+      },
+      "grid": [
+        16,
+        8,
+        1
+      ],
+      "natural_equal_to_one_folding": [
+        "NSPLIT"
+      ],
+      "constructor": {
+        "work": 708,
+        "blocks": 6,
+        "requested_nsplit": 1,
+        "row_blocks": 1
+      }
+    }
+  ],
+  "signature": {
+    "q_ptr": "*bf16",
+    "k_ptr": "*bf16",
+    "v_ptr": "*bf16",
+    "pos_ptr": "*i32",
+    "tree_ptr": "*i64",
+    "o_part_ptr": "*fp32",
+    "m_part_ptr": "*fp32",
+    "l_part_ptr": "*fp32",
+    "o_ptr": "*bf16",
+    "CAP": "i32",
+    "scale": "fp32",
+    "NSPLIT": "i32",
+    "SPLIT_LEN": "i32"
+  },
+  "specialization": "Use installed Triton3.1 JITFunction._get_config on actual argument values and aligned allocation bases. Preserve normal runtime scalars; fold NSPLIT=1 only because actual JITFunction.run naturally folds equal_to_1. No floating-point alignment attributes; bool constexpr handling comes from installed code.",
+  "boundary_coverage": "Per-sequence pos and tree bitmasks are memory data, not constexpr specializations. CPU audit covers tile-end==pos, partial/boundary/draft/empty splits, signed node63. Three BN widths and both GP widths are represented. One FINAL=True pair covers single-split output and natural NSPLIT=1 folding. TREE=False path is byte/AST unchanged and excluded from bounded compile matrix.",
+  "evidence_to_check": [
+    "PTX control flow proves full-prefix branch skips signed tree shift/clamp/bit-test/mask operations rather than merely predicating or hoisting them",
+    "QK and PV dot forms, BF16 probability cast, score scale, online-softmax reduction/exponent/accumulation order, final/partial stores",
+    "PTXAS registers/shared/stack/spills from verbose assembler, compiler metadata shared bytes",
+    "TTGIR tensor layout, dot layout, pipeline stage count, shared layout conversions; PTX async copies/barriers and loop structure",
+    "Full frozen file, decorated function, module, IR and cubin hashes; actual JIT specialization records"
+  ],
+  "decision": "Report any branch flattening/hoisted mask work, loss of async pipeline, material resource increase or spills to root before runtime evaluation; compile success is not numerical/performance validation.",
+  "approval": "Root explicitly approved frozen five pairs/ten compiles, no GPU/official work, no retry without review.",
+  "cases": [
+    {
+      "id": "baseline_b1_r64_bn64_split",
+      "batch": 1,
+      "prompt": 512,
+      "max_new": 32,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 896,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 11,
+        "SPLIT_LEN": 64
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 64,
+        "D": 128,
+        "BLOCK_N": 64,
+        "FINAL": false,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 4,
+        "num_stages": 2
+      },
+      "grid": [
+        1,
+        8,
+        88
+      ],
+      "natural_equal_to_one_folding": [],
+      "constructor": {
+        "work": 672,
+        "blocks": 11,
+        "requested_nsplit": 11,
+        "row_blocks": 8
+      },
+      "kind": "baseline",
+      "pair_id": "b1_r64_bn64_split"
+    },
+    {
+      "id": "candidate_b1_r64_bn64_split",
+      "batch": 1,
+      "prompt": 512,
+      "max_new": 32,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 896,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 11,
+        "SPLIT_LEN": 64
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 64,
+        "D": 128,
+        "BLOCK_N": 64,
+        "FINAL": false,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 4,
+        "num_stages": 2
+      },
+      "grid": [
+        1,
+        8,
+        88
+      ],
+      "natural_equal_to_one_folding": [],
+      "constructor": {
+        "work": 672,
+        "blocks": 11,
+        "requested_nsplit": 11,
+        "row_blocks": 8
+      },
+      "kind": "candidate",
+      "pair_id": "b1_r64_bn64_split"
+    },
+    {
+      "id": "baseline_b4_r16_bn128_split",
+      "batch": 4,
+      "prompt": 2048,
+      "max_new": 32,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 2432,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 6,
+        "SPLIT_LEN": 384
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 16,
+        "D": 128,
+        "BLOCK_N": 128,
+        "FINAL": false,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 8,
+        "num_stages": 3
+      },
+      "grid": [
+        4,
+        8,
+        12
+      ],
+      "natural_equal_to_one_folding": [],
+      "constructor": {
+        "work": 2160,
+        "blocks": 17,
+        "requested_nsplit": 8,
+        "row_blocks": 2
+      },
+      "kind": "baseline",
+      "pair_id": "b4_r16_bn128_split"
+    },
+    {
+      "id": "candidate_b4_r16_bn128_split",
+      "batch": 4,
+      "prompt": 2048,
+      "max_new": 32,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 2432,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 6,
+        "SPLIT_LEN": 384
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 16,
+        "D": 128,
+        "BLOCK_N": 128,
+        "FINAL": false,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 8,
+        "num_stages": 3
+      },
+      "grid": [
+        4,
+        8,
+        12
+      ],
+      "natural_equal_to_one_folding": [],
+      "constructor": {
+        "work": 2160,
+        "blocks": 17,
+        "requested_nsplit": 8,
+        "row_blocks": 2
+      },
+      "kind": "candidate",
+      "pair_id": "b4_r16_bn128_split"
+    },
+    {
+      "id": "baseline_b16_r4_bn128_split",
+      "batch": 16,
+      "prompt": 512,
+      "max_new": 128,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 896,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 2,
+        "SPLIT_LEN": 384
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 16,
+        "R": 4,
+        "D": 128,
+        "BLOCK_N": 128,
+        "FINAL": false,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 4,
+        "num_stages": 3
+      },
+      "grid": [
+        16,
+        8,
+        2
+      ],
+      "natural_equal_to_one_folding": [],
+      "constructor": {
+        "work": 708,
+        "blocks": 6,
+        "requested_nsplit": 2,
+        "row_blocks": 1
+      },
+      "kind": "baseline",
+      "pair_id": "b16_r4_bn128_split"
+    },
+    {
+      "id": "candidate_b16_r4_bn128_split",
+      "batch": 16,
+      "prompt": 512,
+      "max_new": 128,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 896,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 2,
+        "SPLIT_LEN": 384
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 16,
+        "R": 4,
+        "D": 128,
+        "BLOCK_N": 128,
+        "FINAL": false,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 4,
+        "num_stages": 3
+      },
+      "grid": [
+        16,
+        8,
+        2
+      ],
+      "natural_equal_to_one_folding": [],
+      "constructor": {
+        "work": 708,
+        "blocks": 6,
+        "requested_nsplit": 2,
+        "row_blocks": 1
+      },
+      "kind": "candidate",
+      "pair_id": "b16_r4_bn128_split"
+    },
+    {
+      "id": "baseline_b1_r64_bn32_split",
+      "batch": 1,
+      "prompt": 512,
+      "max_new": 32,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 896,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 11,
+        "SPLIT_LEN": 64
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 64,
+        "D": 128,
+        "BLOCK_N": 32,
+        "FINAL": false,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 4,
+        "num_stages": 3
+      },
+      "grid": [
+        1,
+        8,
+        88
+      ],
+      "natural_equal_to_one_folding": [],
+      "constructor": {
+        "work": 672,
+        "blocks": 21,
+        "requested_nsplit": 16,
+        "row_blocks": 8
+      },
+      "kind": "baseline",
+      "pair_id": "b1_r64_bn32_split"
+    },
+    {
+      "id": "candidate_b1_r64_bn32_split",
+      "batch": 1,
+      "prompt": 512,
+      "max_new": 32,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 896,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 11,
+        "SPLIT_LEN": 64
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 32,
+        "R": 64,
+        "D": 128,
+        "BLOCK_N": 32,
+        "FINAL": false,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 4,
+        "num_stages": 3
+      },
+      "grid": [
+        1,
+        8,
+        88
+      ],
+      "natural_equal_to_one_folding": [],
+      "constructor": {
+        "work": 672,
+        "blocks": 21,
+        "requested_nsplit": 16,
+        "row_blocks": 8
+      },
+      "kind": "candidate",
+      "pair_id": "b1_r64_bn32_split"
+    },
+    {
+      "id": "baseline_b16_r4_bn128_final",
+      "batch": 16,
+      "prompt": 512,
+      "max_new": 128,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 896,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 1,
+        "SPLIT_LEN": 768
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 16,
+        "R": 4,
+        "D": 128,
+        "BLOCK_N": 128,
+        "FINAL": true,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 4,
+        "num_stages": 3
+      },
+      "grid": [
+        16,
+        8,
+        1
+      ],
+      "natural_equal_to_one_folding": [
+        "NSPLIT"
+      ],
+      "constructor": {
+        "work": 708,
+        "blocks": 6,
+        "requested_nsplit": 1,
+        "row_blocks": 1
+      },
+      "kind": "baseline",
+      "pair_id": "b16_r4_bn128_final"
+    },
+    {
+      "id": "candidate_b16_r4_bn128_final",
+      "batch": 16,
+      "prompt": 512,
+      "max_new": 128,
+      "representative_not_autotuner_winner": true,
+      "runtime": {
+        "CAP": 896,
+        "scale": 0.08838834764831843,
+        "NSPLIT": 1,
+        "SPLIT_LEN": 768
+      },
+      "constexpr": {
+        "HQ": 32,
+        "HKV": 8,
+        "G": 4,
+        "GP": 16,
+        "R": 4,
+        "D": 128,
+        "BLOCK_N": 128,
+        "FINAL": true,
+        "TREE": true
+      },
+      "options": {
+        "num_warps": 4,
+        "num_stages": 3
+      },
+      "grid": [
+        16,
+        8,
+        1
+      ],
+      "natural_equal_to_one_folding": [
+        "NSPLIT"
+      ],
+      "constructor": {
+        "work": 708,
+        "blocks": 6,
+        "requested_nsplit": 1,
+        "row_blocks": 1
+      },
+      "kind": "candidate",
+      "pair_id": "b16_r4_bn128_final"
+    }
+  ]
+}
