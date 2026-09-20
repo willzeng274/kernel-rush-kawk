@@ -1,0 +1,1173 @@
+{
+  "scope": "Exactly fourteen CPU-only Triton 3.1 SM90 compiles; no driver, GPU or model execution",
+  "base_commit": "31e2a179fb9bfa89af4e41c151e8492d707b724a",
+  "triton": "3.1.0",
+  "compiler_module": "engine/krxfty_controller_kernels.py",
+  "compiler_module_sha256": "57085d291f8c89ebd80ae6bcf58542228eeb553529967ea64d2c7c1ccd93b9d4",
+  "extraction": "Byte-exact decorated top-level function source; imports added only",
+  "sources": {
+    "accept": {
+      "source_path": "work/candidates/krxfty_device_round/engine/kernels/accept.py",
+      "source_sha256": "3d38115a27eef7478ec061d1da6f5ab8b4ed5986ddc77a2a1030ece462b46415",
+      "snapshot": "tools/krxfty_controller_sources/accept.py",
+      "function": "accept_kernel",
+      "lines": [
+        46,
+        110
+      ],
+      "decorated_function_sha256": "8c3c20882af3a89eb27c9310e314e12425c2622fcf13e997b8fad4d1b005c128"
+    },
+    "draft": {
+      "source_path": "work/candidates/krxfty_device_round/engine/recycle.py",
+      "source_sha256": "4ffc558c33d3d27a876f5845fcf5e21b675e366ec37647c4984367df97cfbd0a",
+      "snapshot": "tools/krxfty_controller_sources/recycle.py",
+      "function": "_draft_kernel",
+      "lines": [
+        87,
+        116
+      ],
+      "decorated_function_sha256": "24bf4fc12a7256a36d9fcb8900a78f964107369c87b428db804214245fe221ed"
+    }
+  },
+  "templates": [
+    {
+      "geometry": {
+        "R": 4,
+        "C": 3,
+        "P": 8,
+        "MAXA": 3,
+        "GUARD": 8,
+        "S": 3,
+        "SP": 7,
+        "K": 8
+      },
+      "baseline_batches": [
+        16,
+        32
+      ],
+      "parent": [
+        -1,
+        0,
+        1,
+        2
+      ],
+      "rank": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "children": [
+        [
+          1
+        ],
+        [
+          2
+        ],
+        [
+          3
+        ],
+        []
+      ],
+      "depth": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "spine": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "geometry": {
+        "R": 8,
+        "C": 7,
+        "P": 16,
+        "MAXA": 4,
+        "GUARD": 16,
+        "S": 4,
+        "SP": 9,
+        "K": 8
+      },
+      "baseline_batches": [
+        8
+      ],
+      "parent": [
+        -1,
+        0,
+        1,
+        2,
+        0,
+        3,
+        4,
+        1
+      ],
+      "rank": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1
+      ],
+      "children": [
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          7
+        ],
+        [
+          3
+        ],
+        [
+          5
+        ],
+        [
+          6
+        ],
+        [],
+        [],
+        []
+      ],
+      "depth": [
+        0,
+        1,
+        2,
+        3,
+        1,
+        4,
+        2,
+        2
+      ],
+      "spine": [
+        1,
+        2,
+        3,
+        5
+      ]
+    },
+    {
+      "geometry": {
+        "R": 16,
+        "C": 15,
+        "P": 32,
+        "MAXA": 5,
+        "GUARD": 32,
+        "S": 5,
+        "SP": 11,
+        "K": 8
+      },
+      "baseline_batches": [
+        4
+      ],
+      "parent": [
+        -1,
+        0,
+        1,
+        2,
+        0,
+        3,
+        4,
+        1,
+        0,
+        5,
+        0,
+        7,
+        6,
+        2,
+        8,
+        1
+      ],
+      "rank": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        2,
+        0,
+        3,
+        0,
+        0,
+        1,
+        0,
+        2
+      ],
+      "children": [
+        [
+          1,
+          4,
+          8,
+          10
+        ],
+        [
+          2,
+          7,
+          15
+        ],
+        [
+          3,
+          13
+        ],
+        [
+          5
+        ],
+        [
+          6
+        ],
+        [
+          9
+        ],
+        [
+          12
+        ],
+        [
+          11
+        ],
+        [
+          14
+        ],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "depth": [
+        0,
+        1,
+        2,
+        3,
+        1,
+        4,
+        2,
+        2,
+        1,
+        5,
+        1,
+        3,
+        3,
+        3,
+        2,
+        2
+      ],
+      "spine": [
+        1,
+        2,
+        3,
+        5,
+        9
+      ]
+    },
+    {
+      "geometry": {
+        "R": 32,
+        "C": 31,
+        "P": 64,
+        "MAXA": 6,
+        "GUARD": 64,
+        "S": 6,
+        "SP": 13,
+        "K": 8
+      },
+      "baseline_batches": [
+        2
+      ],
+      "parent": [
+        -1,
+        0,
+        1,
+        2,
+        0,
+        3,
+        4,
+        1,
+        0,
+        5,
+        0,
+        7,
+        6,
+        2,
+        8,
+        1,
+        0,
+        9,
+        10,
+        1,
+        3,
+        13,
+        12,
+        11,
+        4,
+        0,
+        15,
+        14,
+        2,
+        0,
+        16,
+        1
+      ],
+      "rank": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        2,
+        0,
+        3,
+        0,
+        0,
+        1,
+        0,
+        2,
+        4,
+        0,
+        0,
+        3,
+        1,
+        0,
+        0,
+        0,
+        1,
+        5,
+        0,
+        0,
+        2,
+        6,
+        0,
+        4
+      ],
+      "children": [
+        [
+          1,
+          4,
+          8,
+          10,
+          16,
+          25,
+          29
+        ],
+        [
+          2,
+          7,
+          15,
+          19,
+          31
+        ],
+        [
+          3,
+          13,
+          28
+        ],
+        [
+          5,
+          20
+        ],
+        [
+          6,
+          24
+        ],
+        [
+          9
+        ],
+        [
+          12
+        ],
+        [
+          11
+        ],
+        [
+          14
+        ],
+        [
+          17
+        ],
+        [
+          18
+        ],
+        [
+          23
+        ],
+        [
+          22
+        ],
+        [
+          21
+        ],
+        [
+          27
+        ],
+        [
+          26
+        ],
+        [
+          30
+        ],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "depth": [
+        0,
+        1,
+        2,
+        3,
+        1,
+        4,
+        2,
+        2,
+        1,
+        5,
+        1,
+        3,
+        3,
+        3,
+        2,
+        2,
+        1,
+        6,
+        2,
+        2,
+        4,
+        4,
+        4,
+        4,
+        2,
+        1,
+        3,
+        3,
+        3,
+        1,
+        2,
+        2
+      ],
+      "spine": [
+        1,
+        2,
+        3,
+        5,
+        9,
+        17
+      ]
+    },
+    {
+      "geometry": {
+        "R": 64,
+        "C": 63,
+        "P": 128,
+        "MAXA": 8,
+        "GUARD": 128,
+        "S": 8,
+        "SP": 17,
+        "K": 8
+      },
+      "baseline_batches": [
+        1
+      ],
+      "parent": [
+        -1,
+        0,
+        1,
+        2,
+        0,
+        3,
+        4,
+        1,
+        0,
+        5,
+        0,
+        7,
+        6,
+        2,
+        8,
+        1,
+        0,
+        9,
+        10,
+        1,
+        3,
+        13,
+        12,
+        11,
+        4,
+        0,
+        15,
+        14,
+        2,
+        0,
+        16,
+        1,
+        17,
+        19,
+        18,
+        2,
+        0,
+        20,
+        5,
+        23,
+        22,
+        21,
+        24,
+        7,
+        6,
+        25,
+        1,
+        3,
+        28,
+        27,
+        26,
+        8,
+        4,
+        29,
+        1,
+        31,
+        30,
+        2,
+        32,
+        3,
+        35,
+        34,
+        33,
+        36
+      ],
+      "rank": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        2,
+        0,
+        3,
+        0,
+        0,
+        1,
+        0,
+        2,
+        4,
+        0,
+        0,
+        3,
+        1,
+        0,
+        0,
+        0,
+        1,
+        5,
+        0,
+        0,
+        2,
+        6,
+        0,
+        4,
+        0,
+        0,
+        0,
+        3,
+        7,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        1,
+        0,
+        5,
+        2,
+        0,
+        0,
+        0,
+        1,
+        2,
+        0,
+        6,
+        0,
+        0,
+        4,
+        0,
+        3,
+        0,
+        0,
+        0,
+        0
+      ],
+      "children": [
+        [
+          1,
+          4,
+          8,
+          10,
+          16,
+          25,
+          29,
+          36
+        ],
+        [
+          2,
+          7,
+          15,
+          19,
+          31,
+          46,
+          54
+        ],
+        [
+          3,
+          13,
+          28,
+          35,
+          57
+        ],
+        [
+          5,
+          20,
+          47,
+          59
+        ],
+        [
+          6,
+          24,
+          52
+        ],
+        [
+          9,
+          38
+        ],
+        [
+          12,
+          44
+        ],
+        [
+          11,
+          43
+        ],
+        [
+          14,
+          51
+        ],
+        [
+          17
+        ],
+        [
+          18
+        ],
+        [
+          23
+        ],
+        [
+          22
+        ],
+        [
+          21
+        ],
+        [
+          27
+        ],
+        [
+          26
+        ],
+        [
+          30
+        ],
+        [
+          32
+        ],
+        [
+          34
+        ],
+        [
+          33
+        ],
+        [
+          37
+        ],
+        [
+          41
+        ],
+        [
+          40
+        ],
+        [
+          39
+        ],
+        [
+          42
+        ],
+        [
+          45
+        ],
+        [
+          50
+        ],
+        [
+          49
+        ],
+        [
+          48
+        ],
+        [
+          53
+        ],
+        [
+          56
+        ],
+        [
+          55
+        ],
+        [
+          58
+        ],
+        [
+          62
+        ],
+        [
+          61
+        ],
+        [
+          60
+        ],
+        [
+          63
+        ],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        []
+      ],
+      "depth": [
+        0,
+        1,
+        2,
+        3,
+        1,
+        4,
+        2,
+        2,
+        1,
+        5,
+        1,
+        3,
+        3,
+        3,
+        2,
+        2,
+        1,
+        6,
+        2,
+        2,
+        4,
+        4,
+        4,
+        4,
+        2,
+        1,
+        3,
+        3,
+        3,
+        1,
+        2,
+        2,
+        7,
+        3,
+        3,
+        3,
+        1,
+        5,
+        5,
+        5,
+        5,
+        5,
+        3,
+        3,
+        3,
+        2,
+        2,
+        4,
+        4,
+        4,
+        4,
+        2,
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        8,
+        4,
+        4,
+        4,
+        4,
+        2
+      ],
+      "spine": [
+        1,
+        2,
+        3,
+        5,
+        9,
+        17,
+        32,
+        58
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "accept_r4",
+      "kind": "accept",
+      "kernel": "accept_kernel",
+      "constexpr": {
+        "R": 4,
+        "C": 3,
+        "P": 8,
+        "MAXA": 3,
+        "GUARD": 8
+      },
+      "grid": [
+        16
+      ],
+      "equivalent_baseline_batches": [
+        16,
+        32
+      ],
+      "runtime_values": {
+        "CAP": 896
+      },
+      "num_warps": 1
+    },
+    {
+      "id": "draft_r4",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 4,
+        "S": 3,
+        "SP": 7
+      },
+      "grid": [
+        16
+      ],
+      "equivalent_baseline_batches": [
+        16,
+        32
+      ],
+      "runtime_values": {},
+      "num_warps": 4
+    },
+    {
+      "id": "accept_r8",
+      "kind": "accept",
+      "kernel": "accept_kernel",
+      "constexpr": {
+        "R": 8,
+        "C": 7,
+        "P": 16,
+        "MAXA": 4,
+        "GUARD": 16
+      },
+      "grid": [
+        8
+      ],
+      "equivalent_baseline_batches": [
+        8
+      ],
+      "runtime_values": {
+        "CAP": 896
+      },
+      "num_warps": 1
+    },
+    {
+      "id": "draft_r8",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 8,
+        "S": 4,
+        "SP": 9
+      },
+      "grid": [
+        8
+      ],
+      "equivalent_baseline_batches": [
+        8
+      ],
+      "runtime_values": {},
+      "num_warps": 4
+    },
+    {
+      "id": "accept_r16",
+      "kind": "accept",
+      "kernel": "accept_kernel",
+      "constexpr": {
+        "R": 16,
+        "C": 15,
+        "P": 32,
+        "MAXA": 5,
+        "GUARD": 32
+      },
+      "grid": [
+        4
+      ],
+      "equivalent_baseline_batches": [
+        4
+      ],
+      "runtime_values": {
+        "CAP": 2432
+      },
+      "num_warps": 1
+    },
+    {
+      "id": "draft_r16",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 16,
+        "S": 5,
+        "SP": 11
+      },
+      "grid": [
+        4
+      ],
+      "equivalent_baseline_batches": [
+        4
+      ],
+      "runtime_values": {},
+      "num_warps": 4
+    },
+    {
+      "id": "accept_r32",
+      "kind": "accept",
+      "kernel": "accept_kernel",
+      "constexpr": {
+        "R": 32,
+        "C": 31,
+        "P": 64,
+        "MAXA": 6,
+        "GUARD": 64
+      },
+      "grid": [
+        2
+      ],
+      "equivalent_baseline_batches": [
+        2
+      ],
+      "runtime_values": {
+        "CAP": 896
+      },
+      "num_warps": 1
+    },
+    {
+      "id": "draft_r32",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 32,
+        "S": 6,
+        "SP": 13
+      },
+      "grid": [
+        2
+      ],
+      "equivalent_baseline_batches": [
+        2
+      ],
+      "runtime_values": {},
+      "num_warps": 4
+    },
+    {
+      "id": "accept_r64",
+      "kind": "accept",
+      "kernel": "accept_kernel",
+      "constexpr": {
+        "R": 64,
+        "C": 63,
+        "P": 128,
+        "MAXA": 8,
+        "GUARD": 128
+      },
+      "grid": [
+        1
+      ],
+      "equivalent_baseline_batches": [
+        1
+      ],
+      "runtime_values": {
+        "CAP": 896
+      },
+      "num_warps": 1
+    },
+    {
+      "id": "draft_r64",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 8,
+        "R": 64,
+        "S": 8,
+        "SP": 17
+      },
+      "grid": [
+        1
+      ],
+      "equivalent_baseline_batches": [
+        1
+      ],
+      "runtime_values": {},
+      "num_warps": 4
+    },
+    {
+      "id": "draft_r4_k1",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 1,
+        "R": 4,
+        "S": 3,
+        "SP": 7
+      },
+      "grid": [
+        16
+      ],
+      "equivalent_baseline_batches": [
+        16,
+        32
+      ],
+      "runtime_values": {},
+      "num_warps": 4,
+      "template_K": 8,
+      "reason": "Authorized possible rank-budget base: template built with K8, table stride narrowed to max(original_template.rank)+1"
+    },
+    {
+      "id": "draft_r8_k2",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 2,
+        "R": 8,
+        "S": 4,
+        "SP": 9
+      },
+      "grid": [
+        8
+      ],
+      "equivalent_baseline_batches": [
+        8
+      ],
+      "runtime_values": {},
+      "num_warps": 4,
+      "template_K": 8,
+      "reason": "Authorized possible rank-budget base: template built with K8, table stride narrowed to max(original_template.rank)+1"
+    },
+    {
+      "id": "draft_r16_k4",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 4,
+        "R": 16,
+        "S": 5,
+        "SP": 11
+      },
+      "grid": [
+        4
+      ],
+      "equivalent_baseline_batches": [
+        4
+      ],
+      "runtime_values": {},
+      "num_warps": 4,
+      "template_K": 8,
+      "reason": "Authorized possible rank-budget base: template built with K8, table stride narrowed to max(original_template.rank)+1"
+    },
+    {
+      "id": "draft_r32_k7",
+      "kind": "draft",
+      "kernel": "_draft_kernel",
+      "constexpr": {
+        "K": 7,
+        "R": 32,
+        "S": 6,
+        "SP": 13
+      },
+      "grid": [
+        2
+      ],
+      "equivalent_baseline_batches": [
+        2
+      ],
+      "runtime_values": {},
+      "num_warps": 4,
+      "template_K": 8,
+      "reason": "Authorized possible rank-budget base: template built with K8, table stride narrowed to max(original_template.rank)+1"
+    }
+  ],
+  "launch_context": {
+    "pointer_alignment": "All pointer arguments are allocation bases, at least 16-byte aligned; contiguous tensor strides are baked into exact kernel source via R, MAXA, SP and K.",
+    "capacity": "CAP remains runtime i32, aligned to 64 by Plan; representative CAP 896 (T512) or 2432 (T2048), max_new <=256. No hidden shape assumed.",
+    "default_options": "Draft launcher omits options: Triton CUDA defaults four warps, three stages and enable_fp_fusion=True. Accept explicitly sets one warp and retains other defaults.",
+    "baseline_K": 8
+  },
+  "attempt_limit": 1
+}
