@@ -170,17 +170,13 @@ def decode_matmuls(m: Model, M: int, log) -> dict[str, object]:
             "lm": lambda x, y, wn, xout, w: lm(add_rms_norm(x, y, wn, cfg.eps, xout), w),
         }
     L = m.layers
-    selected = {
+    return {
         "qkv": pick_normed("matmul", x, y, layer.in_norm, layer.wqkv, cfg.eps, log, ws=[l.wqkv for l in L]),
         "o": pick_matmul(a, layer.wo, log, ws=[l.wo for l in L]),
         "gu": pick_normed("gateup", x, y, layer.post_norm, layer.wgu, cfg.eps, log, ws=[l.wgu for l in L]),
         "d": pick_matmul(act, layer.wd, log, ws=[l.wd for l in L]),
         "lm": pick_normed("matmul", x, y, m.final_norm, m.lm_head, cfg.eps, log),
     }
-    if M == 64:
-        from kernels.m64_matmul_selection import select_m64_projections
-        selected = select_m64_projections(selected, m, x, y, a, act, log)
-    return selected
 
 
 def run_layers(plan: "Plan", mm: dict, x: torch.Tensor, q_buf: torch.Tensor, attn_out: torch.Tensor,
@@ -261,6 +257,7 @@ class Plan:
                 self.attention = pick_attention(B, HQ, HKV, D, self.cap, T + max_new // 2, dev, log, maxlen=T + max_new + 64)
         self.mm = self._pick_decode_matmuls()
         self.recycler = None
+        self.prompt_seed = None
 
     def _pick_decode_matmuls(self) -> dict[str, object]:
         """Time cuBLAS against the Triton skinny GEMM for every decode shape."""
@@ -305,24 +302,9 @@ class Plan:
             h = add_rms_norm(x, d, self._next_norm(i), cfg.eps)
         logits = h.view(B, T, cfg.hidden)[:, -1] @ m.lm_head.t()
         if self.recycler is not None:
-            self._warm_table(h)
+            self.prompt_seed.capture_hidden(h)
         self.pos.fill_(T)
         return logits
-
-    def _warm_table(self, h: torch.Tensor, chunk: int = 2048) -> None:
-        """Record the model's top-k continuation of every prompt token, so the
-        adjacency table already knows the text's habits before the first draft.
-        Only the last prompt position is a real output; the rest reuse the final
-        hidden states the prefill computed anyway, one LM-head chunk at a time."""
-        m = self.model
-        B, T = self.B, self.T
-        tail = min(T, 1024)  # the most recent context is what the drafts will draw on
-        h = h.view(B, T, -1)[:, T - tail:].reshape(B * tail, -1)
-        ids = self.ids[:, T - tail:].reshape(-1)
-        rows = h.shape[0]
-        for start in range(0, rows, chunk):
-            logits = h[start:start + chunk] @ m.lm_head.t()
-            self.recycler.update(ids[start:start + chunk], logits)
 
     @torch.inference_mode()
     def decode(self) -> torch.Tensor:

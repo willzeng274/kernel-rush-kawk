@@ -47,6 +47,7 @@ from kernels.compact import compact_paths
 from model import Model, Plan, VerifyPlan
 from recycle import Recycler
 from pair_cache import PAIR_SLOTS, prompt_pairs
+from prompt_seed import PromptModelSeed
 from spec import NGramDrafter
 
 PICKER_BUDGET_S = 120.0
@@ -90,6 +91,7 @@ class GraphPlan:
             R = recycle_rows
             self.recycler = Recycler(model.cfg.vocab, B, R, recycle_k, dev)
             self.plan.recycler = self.recycler
+            self.plan.prompt_seed = PromptModelSeed(B, T, model.cfg.hidden, dev)
             pair_rows = max(1, B * min(PAIR_SLOTS, max(0, T - 2)))
             self.host_pair_slots = torch.empty((pair_rows,), dtype=torch.int64, pin_memory=True)
             self.host_pair_keys = torch.empty((pair_rows,), dtype=torch.int64, pin_memory=True)
@@ -311,6 +313,7 @@ class GraphPlan:
             B = self.B
             plan.ids.copy_(_ids_tensor(input_ids))
             self._step_prefill()
+            plan.prompt_seed.seed(input_ids, plan.model.lm_head, rec)
             self._seed_pair_table(input_ids)
             first = plan.tok.tolist()
             if max_new_tokens == 1:
