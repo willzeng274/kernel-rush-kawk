@@ -1,0 +1,25 @@
+{
+  "status": "PASS",
+  "python": "3.12.14 (main, Aug 25 2026, 13:50:33) [Clang 22.1.3 ]",
+  "executable": "/Users/polyuser/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3",
+  "torch": "2.5.1",
+  "execution": "CPU actual source-body emulation; no Triton compilation/GPU",
+  "kernel_sha256": "3a8fdbd8340e9970ddaab1ae3be5131181ae7900d4e5b3362114f5bf255d4e3b",
+  "kernel_cases": 11,
+  "kernel_rows": 272,
+  "all_bf16_encodings": 65536,
+  "detected_mutations": [
+    "tail-load",
+    "tail-live",
+    "tie-direction",
+    "duplicate-winner",
+    "local-id",
+    "merge-padding",
+    "nan-key"
+  ],
+  "policy_cases": 33,
+  "integration_cases": 15,
+  "greedy_method_preserved": true,
+  "prefill_methods_preserved": true,
+  "final_host_rerun": "PASS; quarantine-only host change, all device function ASTs unchanged from full CPU run"
+}
