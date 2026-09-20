@@ -344,6 +344,11 @@ class VerifyPlan:
         self.attention = pick_attention(B, HQ, HKV, D, plan.cap, plan.T + plan.max_new // 2, dev, log, R=R, tree=tree,
                                         maxlen=plan.T + plan.max_new + R + 64)
         self.mm = decode_matmuls(m, B * R, log)
+        if tree and recycler is not None and B * R == 64:
+            # Every incumbent selector, including any composed wide projection
+            # selector inside decode_matmuls, has completed before optional N32.
+            from kernels.m64_gateup_n32_selection import select_m64_gateup_n32
+            self.mm = select_m64_gateup_n32(self.mm, m, log)
 
     @torch.inference_mode()
     def verify(self) -> torch.Tensor:
