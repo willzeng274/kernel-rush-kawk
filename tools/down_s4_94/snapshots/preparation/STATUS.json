@@ -1,0 +1,14 @@
+{
+  "status": "SOURCE_READY_UNCOMPILED",
+  "base_commit": "60956a2979216d7791c57b3030534288d13c01df",
+  "source_set_sha256": "09615652fb2ffd2d716bacd02a59d5736dde83d47050cddf910fb4ac15c7ae7d",
+  "candidate_source_unchanged_since_root_initial_read": true,
+  "host_checks": 42,
+  "patch_apply_parity": true,
+  "archive_members": 23,
+  "device_compiles": 0,
+  "CI_runs": 0,
+  "GPU_runs": 0,
+  "official_submissions": 0,
+  "next_step": "Independent root review; separate authorization required before exactly two proposed native compiler builds."
+}

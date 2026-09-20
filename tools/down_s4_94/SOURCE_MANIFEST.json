@@ -1,0 +1,73 @@
+{
+  "candidate": "krxfty_down_s4_on91",
+  "source_set_sha256": "09615652fb2ffd2d716bacd02a59d5736dde83d47050cddf910fb4ac15c7ae7d",
+  "cases": [
+    "down_m64_n64_k64_split4_w4_s3",
+    "sum_mn163840_split4_block1024"
+  ],
+  "bounds": {
+    "single_worker": true,
+    "total_seconds": 90,
+    "case_seconds": 40,
+    "retry": false,
+    "expand_search": false
+  },
+  "kernel_sha256": "4486f4a358a57708d9a47a94a8b4356d5093668a4adb6891ee8e7105f6dfab11",
+  "extractions": [
+    {
+      "source": "kernels/down_s4.py",
+      "kernel": "_down_s4_kernel",
+      "original_sha256": "ec7caba3d372343d0c08c8b45ed1cbcf88ef054358bcfa67097edd6882acc2c3",
+      "span_sha256": "b95cf22f4065a3247503b848b5ef3ba0a2a2ea46928e18ca9ca086767c18100e"
+    },
+    {
+      "source": "kernels/gemm.py",
+      "kernel": "_sum_kernel",
+      "original_sha256": "edc91ecbec3a454a0dadcd468c84d49ec94c1133f44e9aad4799b3dcfd1889a3",
+      "span_sha256": "5c61f71cd0da4e6b08090982b0363c28d234d1b93ac26903ead20edf5919016e"
+    }
+  ],
+  "extraction": "Exact decorated _down_s4_kernel and unchanged _sum_kernel spans; full original source is frozen.",
+  "engine_files": {
+    "baseline.py": "ce943112630a01e6912fb240a90c20d9096d74789782b3ef327133a5f69abfcb",
+    "budget.py": "b53d94e1aaf19df1c6ea2f25bc7f4974d0298ea2d7197fc532e4f6d917dda4e3",
+    "engine.py": "3969a664a9013688be49acf2b66f453bf9930e0699ee2a9f46dadd4979eb9e8a",
+    "kernels/__init__.py": "34ae2a727bc6d643ece5040af4a9649c1072e4c436717c780bbdad25800f84f8",
+    "kernels/accept.py": "59de9460feb605e49b556f1c4c0afca3e28e6614f582e060d3279bbdc8f188d6",
+    "kernels/add_rmsnorm.py": "8a7943ba2bbdf4224d004e3a83629768d7a2890564dcac721a02becd72524608",
+    "kernels/attention.py": "db331e597132e9e084975e3d9d475b89c8c1aa0d0991b5836381112ba5aec67d",
+    "kernels/compact.py": "c7c1c6ef1d4822958e72c8afc769e4f3ceed836672ce9f4ea375c1366965772c",
+    "kernels/down_s4.py": "ec7caba3d372343d0c08c8b45ed1cbcf88ef054358bcfa67097edd6882acc2c3",
+    "kernels/gateup64.py": "399aa701a6de264a840cd8e0f2cbd10f940fc711203c92732c6cb0d6a5e29533",
+    "kernels/gateup_n32.py": "7059cb67f089f9b1654347524347b4f559a91e355e88dfc9023c5048b341fe87",
+    "kernels/gemm.py": "edc91ecbec3a454a0dadcd468c84d49ec94c1133f44e9aad4799b3dcfd1889a3",
+    "kernels/m64_down_s4_selection.py": "2324c7331c0bebdb19213465b26187af5cfe634f6c4ff8c6360dbf7cb2f963de",
+    "kernels/m64_gateup_n32_selection.py": "1d934b029de83ab334256f61bb89190cc40cc831d1d67bf1e1dc3f0d350d86c6",
+    "kernels/m64_gateup_selection.py": "31ee3e1367eee0a4b7e04362fb1864404591dbbf4c48fb5512e07dc410fca361",
+    "kernels/rmsnorm.py": "2b94cc1921159102046b7e27dac718a6b4551d5333ef89622de8cc7e2809949b",
+    "kernels/rope.py": "7461f6b065837da04693e6e591add872e7ac5a005514d7886d188cf7aa183fc0",
+    "kernels/swiglu.py": "b5a0837230f0d1627d3b880f9121e8be69d1b539d315bc82c0d09fc3b156f2ee",
+    "model.py": "e59d29994dca4b052e30b2dec9274b63efa9dec45fe5841f2edc0c714eb4c8f7",
+    "pair_cache.py": "40a3b1985c25ff768d067e4aea171271d640c9dad46513242a0f8ce1b1ac4030",
+    "prompt_seed.py": "c71fb6f31fb3f10e65bb0470f31acd2545885109fb56b3bd737cbf1fc38db6b4",
+    "recycle.py": "af2cbf5831cde4fe52a2c15d876dc09c52ec79280585712bdc30db7d88a198a0",
+    "spec.py": "2084c5c1c33dd99a03f0da34a7cbb1d88148e6be7fa9a74b3b9b8458f49092b8"
+  },
+  "preparation_files": {
+    "BASE_MANIFEST.json": "9b3fbc9fbbe2556047da8017fa4c967e97fb6f816dedc2af01551311ae456b0e",
+    "CANDIDATE.diff": "08ff0efb313d361f6dc34efd492d1c49667a848cf6fc507a86b47e6cc8508fa5",
+    "COMPILE_PLAN.json": "94cc5e6761ec14e38ade8bb3bb646ca256b9f10db2354f5edd38d94730f0e99a",
+    "HOST_CHECKS.json": "7fc4d9ebf936ea2ff0236fb063f481662d29c2ba423345887406912023f8c368",
+    "PREPARATION_MANIFEST.json": "f155d0045a59c5958d4172b4585b4f1dc8e7fa97449627674ea1f0bb2bd71616",
+    "ROOT_SOURCE_REVIEW.md": "2cf86f20660a6bd8aff236c539327d9614efbd313c66744e5ded94c22c8cacd1",
+    "SOURCE_MANIFEST.json": "f72ca6d75ce84e169fbc5f0ba1f1893923a651a377de7e04f81041669517dd6a",
+    "SOURCE_SHA256.txt": "09615652fb2ffd2d716bacd02a59d5736dde83d47050cddf910fb4ac15c7ae7d",
+    "STATUS.json": "ba1c7a17b637a434c5d643963223af6969bc2467e8588235af57fc6719fe8550",
+    "check_prototype.py": "a8473d263d602df845c381eac6eb5237cd592c9251165dd4b51ddb334fa29884",
+    "down-s4-on91-source.tar.gz": "467289f1afae722180e2ca39d3254f720d65f0a6932a746613927b921a53b530"
+  },
+  "primary_files": {
+    "jit.py": "7542bf9254646331ed90ce16fe1bfb2caf87d77d748d84396aab44c8027d508b",
+    "nvidia_compiler.py": "a979896b9c0acfd41dd953b90bdc4b10968f7c0b45a286eae3f829aaddb2bb55"
+  }
+}

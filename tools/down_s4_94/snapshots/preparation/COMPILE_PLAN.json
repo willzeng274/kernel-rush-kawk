@@ -1,0 +1,53 @@
+{
+  "status": "PROPOSED_ONLY_UNCOMPILED_SOURCE_READY",
+  "authorized_compile_builds_now": 0,
+  "proposed_builds_after_separate_root_authorization": 2,
+  "scope": "One dedicated down producer and unchanged retained merge. No baseline compile, retries, sweep, GPU execution or extra geometry.",
+  "runtime": {"python": "3.11", "torch": "2.5.1", "triton": "3.1.0", "cuda_ptxas": "12.4", "target": "sm_90a"},
+  "cases": [
+    {
+      "name": "down_m64_n64_k64_split4_w4_s3",
+      "source": "kernels/down_s4.py",
+      "function": "_down_s4_kernel",
+      "grid": [160],
+      "argument_order": ["a_ptr", "w_ptr", "part_ptr", "stride_am", "stride_wn", "BLOCK_M", "BLOCK_N", "BLOCK_K", "SPLIT_K", "K_PER_SPLIT"],
+      "expected_runtime_signature_to_verify_with_native_binder": {"a_ptr": "*bf16", "w_ptr": "*bf16", "part_ptr": "*fp32", "stride_am": "i32", "stride_wn": "i32"},
+      "runtime_values": {"stride_am": 9728, "stride_wn": 9728},
+      "constexprs": {"BLOCK_M": 64, "BLOCK_N": 64, "BLOCK_K": 64, "SPLIT_K": 4, "K_PER_SPLIT": 2432},
+      "explicit_options": {"num_warps": 4, "num_stages": 3, "num_ctas": 1, "enable_fp_fusion": true},
+      "input_shapes": [[64, 9728], [2560, 9728]],
+      "partial_shape": [4, 64, 2560],
+      "partial_dtype": "float32",
+      "partial_bytes": 2621440,
+      "k_steps_per_cta": 38,
+      "must_audit": [
+        "Native binder signature, constexpr, alignment/divisibility attributes and complete parsed NVIDIA options must match frozen expectations before exactly one build; source values are not a claimed native key.",
+        "Exactly one K loop and no persistent outer loop or speculative next-tile shared overwrite.",
+        "All 38 steps per split: last valid K tiles are 2368, 4800, 7232, 9664. Source has no masks because all real source elements are in bounds; compiler pipeline prefetches beyond each interval must be correctly predicated or absent.",
+        "Async copy waits/barriers protect current operands; outstanding WGMMA may not overlap a write to its shared stage, including every tail/zero-fill operation.",
+        "Final WGMMA and async-copy drains precede shared reuse, output-store staging, shared deallocation and kernel return. QKV's 40-step proof does not establish this 38-step specialization.",
+        "Each of 655360 FP32 partial values stored exactly once at (split*64+row)*2560+column; no BF16 partial conversion, atomics or residual/normalization path.",
+        "Record registers, shared bytes, stack/spill bytes, actual matrix instruction shape and all diagnostics. Reject spills, unproven stage ordering/bounds or unexpected launch semantics before runtime."
+      ]
+    },
+    {
+      "name": "sum_mn163840_split4_block1024",
+      "source": "kernels/gemm.py",
+      "function": "_sum_kernel",
+      "provenance": "Byte-identical retained #91 _sum_kernel, not copied or modified.",
+      "grid": [160],
+      "argument_order": ["part_ptr", "c_ptr", "MN", "SPLIT_K", "BLOCK"],
+      "expected_runtime_signature_to_verify_with_native_binder": {"part_ptr": "*fp32", "c_ptr": "*bf16", "MN": "i32"},
+      "runtime_values": {"MN": 163840},
+      "constexprs": {"SPLIT_K": 4, "BLOCK": 1024},
+      "explicit_options": {"num_warps": 4, "num_stages": 3, "num_ctas": 1, "enable_fp_fusion": true},
+      "must_audit": [
+        "Verify actual native inferred/default options, binder signature and divisibility attributes; explicit launch options alone do not establish the native specialization.",
+        "Four FP32 plane loads and sequential FP32 addition from zero, one BF16 result conversion; 163840 unique BF16 output elements.",
+        "Same-stream producer completion orders all partial stores before merge reads, and merge output precedes unchanged next normalization."
+      ]
+    }
+  ],
+  "compiler_artifacts_required": ["exact_source_hashes", "native_expected_and_actual_keys", "TTIR", "TTGIR", "LLVM_IR", "PTX", "cubin", "metadata", "PTXAS_diagnostics", "per_stage_tail_trace", "store_address_audit"],
+  "runtime_limitations": "No device code was compiled or executed during preparation. CPU stand-ins do not establish BF16 model correctness, pipeline safety, occupancy or speed. No new full-verifier self-check or cache restoration machinery was added; only an official GPU run can establish complete verifier correctness."
+}

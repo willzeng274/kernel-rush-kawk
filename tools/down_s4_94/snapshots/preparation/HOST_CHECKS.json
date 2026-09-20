@@ -1,0 +1,349 @@
+{
+  "checks": [
+    {
+      "name": "exact base parity and late M64 hook; 655360 unique FP32 stores, exact K coverage and structural negative controls",
+      "passed": true
+    },
+    {
+      "name": "actual wrapper exact two-launch ABI, FP32 owned scratch, fresh BF16 outputs and six off-shape/layout guards",
+      "passed": true
+    },
+    {
+      "name": "actual AST address interpretation catches four source-level split/channel/K mutants",
+      "passed": true,
+      "negative_controls": [
+        "missing_plane",
+        "repeated_channels",
+        "overlapping_K",
+        "K_gap_or_oob"
+      ],
+      "partial_addresses": 655360,
+      "k_intervals": [
+        [
+          0,
+          2431
+        ],
+        [
+          2432,
+          4863
+        ],
+        [
+          4864,
+          7295
+        ],
+        [
+          7296,
+          9727
+        ]
+      ]
+    },
+    {
+      "name": "candidate wins both orders",
+      "passed": true,
+      "selection": "candidate",
+      "timing_order": [
+        "original",
+        "candidate",
+        "candidate",
+        "original"
+      ],
+      "main_launches": 108
+    },
+    {
+      "name": "one order misses threshold",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [
+        "original",
+        "candidate",
+        "candidate",
+        "original"
+      ],
+      "main_launches": 108
+    },
+    {
+      "name": "exact three percent is insufficient",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [
+        "original",
+        "candidate",
+        "candidate",
+        "original"
+      ],
+      "main_launches": 108
+    },
+    {
+      "name": "both orders slower",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [
+        "original",
+        "candidate",
+        "candidate",
+        "original"
+      ],
+      "main_launches": 108
+    },
+    {
+      "name": "finite pointwise near-zero check",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 1
+    },
+    {
+      "name": "last layer validated",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 36
+    },
+    {
+      "name": "candidate NaN",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 1
+    },
+    {
+      "name": "candidate infinity",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 1
+    },
+    {
+      "name": "reference NaN",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 1
+    },
+    {
+      "name": "next norm output mismatch",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 1
+    },
+    {
+      "name": "next residual mismatch",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 1
+    },
+    {
+      "name": "common gu activation mutation",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 1
+    },
+    {
+      "name": "common residual mutation",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 1
+    },
+    {
+      "name": "validation input mutation",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 36
+    },
+    {
+      "name": "timed input mutation",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [
+        "original",
+        "candidate",
+        "candidate",
+        "original"
+      ],
+      "main_launches": 108
+    },
+    {
+      "name": "candidate error drained fallback",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 0
+    },
+    {
+      "name": "timer error drained fallback",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [
+        "original"
+      ],
+      "main_launches": 36
+    },
+    {
+      "name": "nonfinite timer rejected",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [
+        "original",
+        "candidate"
+      ],
+      "main_launches": 72
+    },
+    {
+      "name": "zero timer rejected",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [
+        "original",
+        "candidate"
+      ],
+      "main_launches": 72
+    },
+    {
+      "name": "negative timer rejected",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [
+        "original",
+        "candidate"
+      ],
+      "main_launches": 72
+    },
+    {
+      "name": "entry below20 seconds",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 0
+    },
+    {
+      "name": "entry NaN budget",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 0
+    },
+    {
+      "name": "forced cuBLAS",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 0
+    },
+    {
+      "name": "norm fusion optout",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 0
+    },
+    {
+      "name": "bad weight alignment",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 0
+    },
+    {
+      "name": "bad weight layout",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 0
+    },
+    {
+      "name": "wrong final next norm",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 0
+    },
+    {
+      "name": "unsupported device",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 0
+    },
+    {
+      "name": "incomplete layers",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 0
+    },
+    {
+      "name": "expires during validation",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [],
+      "main_launches": 1
+    },
+    {
+      "name": "reserve expires after first timing",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [
+        "original"
+      ],
+      "main_launches": 36
+    },
+    {
+      "name": "reserve expires after final timing",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [
+        "original",
+        "candidate",
+        "candidate",
+        "original"
+      ],
+      "main_launches": 108
+    },
+    {
+      "name": "deadline expires after final timing",
+      "passed": true,
+      "selection": "original",
+      "timing_order": [
+        "original",
+        "candidate",
+        "candidate",
+        "original"
+      ],
+      "main_launches": 108
+    },
+    {
+      "name": "actual median5 timer retains 78 gu/down allocations and graph through all seven drains",
+      "passed": true
+    },
+    {
+      "name": "inner failed drain quarantines owners and prevents ordinary fallback/reuse",
+      "passed": true
+    },
+    {
+      "name": "final failed drain quarantines owners and prevents ordinary fallback/reuse",
+      "passed": true
+    },
+    {
+      "name": "capture no-op allocates nothing and never drains",
+      "passed": true
+    },
+    {
+      "name": "partial private allocation error retains first allocation until successful drain",
+      "passed": true
+    },
+    {
+      "name": "interrupted actual timer keeps graph and all outputs available for outer quarantine",
+      "passed": true
+    }
+  ],
+  "count": 42,
+  "all_passed": true,
+  "gpu_execution": false,
+  "triton_compilation": false,
+  "limits": "Actual host code under CPU stand-ins; no device arithmetic, compiler ordering, runtime correctness or speed claim."
+}
