@@ -1,0 +1,9 @@
+{
+  "status": "PREPARED_CPU_CHECKED_NOT_COMPILED_NOT_SUBMITTED",
+  "source_set_sha256": "ea2f5459a7496c1ec4f94c25d0bb53f544a77f6ca59ab43b6a6fabae0e25806a",
+  "source_manifest_sha256": "badcf599e7268757a7cc7d2d56807caae9dfb75c4542ab580eee3d681955d5f8",
+  "archive_sha256": "13f47bbe4841f79c882e59687c72a4a65aba5c8ae54c132cfa18a76e0604163c",
+  "base_revision": 87,
+  "base_commit": "9719c8ba764766223fdcdd9803d06f66a4c9a32a",
+  "pending": "Parent review and separately authorized exact-source compile; no hardware/performance evidence."
+}

@@ -1,0 +1,100 @@
+{
+  "candidate_source_set_sha256": "ea2f5459a7496c1ec4f94c25d0bb53f544a77f6ca59ab43b6a6fabae0e25806a",
+  "candidate_archive_sha256": "13f47bbe4841f79c882e59687c72a4a65aba5c8ae54c132cfa18a76e0604163c",
+  "candidate_source_manifest_sha256": "badcf599e7268757a7cc7d2d56807caae9dfb75c4542ab580eee3d681955d5f8",
+  "function_sources": {
+    "_pair_slot": {
+      "file": "engine/pair_cache.py",
+      "start_line": 73,
+      "end_line": 77,
+      "sha256": "bf79af8cfa3a92f684e90b95d15388fa859f124f0a38ef33e38e522e2f9b9280"
+    },
+    "_triple_slot": {
+      "file": "engine/pair_cache.py",
+      "start_line": 80,
+      "end_line": 83,
+      "sha256": "ef10f7b1ae05e227cdb4b2c93b081ba4b51235a5cd354d9ce3404d4b7acb1e56"
+    },
+    "_draft_kernel": {
+      "file": "engine/recycle.py",
+      "start_line": 88,
+      "end_line": 143,
+      "sha256": "ace96bcd04d144829d744d98a46957079bbae9414e7aa455c748aa239c23c2a9"
+    },
+    "_publish_pairs_kernel": {
+      "file": "engine/pair_cache.py",
+      "start_line": 86,
+      "end_line": 128,
+      "sha256": "174b1f31fc57f144b732c71ea9dfd41ffe6155e2bafe61949285dfe6fe31b9e5"
+    }
+  },
+  "module_sha256": "c2657299ef912c671870926881ced8ff283036e7710edfdf1b024a056a2e4f98",
+  "cases": [
+    "draft_R2",
+    "publisher_R2",
+    "draft_R3",
+    "publisher_R3",
+    "draft_R4",
+    "publisher_R4",
+    "draft_R8",
+    "publisher_R8",
+    "draft_R16",
+    "publisher_R16",
+    "draft_R32",
+    "publisher_R32",
+    "draft_R42",
+    "publisher_R42",
+    "draft_R64",
+    "publisher_R64"
+  ],
+  "target": {
+    "backend": "cuda",
+    "arch": 90,
+    "warp_size": 32
+  },
+  "bounds": {
+    "single_worker": true,
+    "total_seconds": 240,
+    "case_seconds": 40,
+    "retry": false,
+    "expand_search": false
+  },
+  "compile_plan_sha256": "1ab156bedf63442564e181c24d736e50e0ea1e086ff7fb0e2b5ac93223561dae",
+  "engine_files": {
+    "baseline.py": "ce943112630a01e6912fb240a90c20d9096d74789782b3ef327133a5f69abfcb",
+    "budget.py": "b53d94e1aaf19df1c6ea2f25bc7f4974d0298ea2d7197fc532e4f6d917dda4e3",
+    "engine.py": "892d181fd6958b623710307e062442681544db0194d18d2988f1f9c56c951675",
+    "kernels/__init__.py": "34ae2a727bc6d643ece5040af4a9649c1072e4c436717c780bbdad25800f84f8",
+    "kernels/accept.py": "59de9460feb605e49b556f1c4c0afca3e28e6614f582e060d3279bbdc8f188d6",
+    "kernels/add_rmsnorm.py": "8a7943ba2bbdf4224d004e3a83629768d7a2890564dcac721a02becd72524608",
+    "kernels/attention.py": "791d6a53ca6e17571d931975fb6f5d08c0f0f20429cddd32eec7f77a70445f77",
+    "kernels/compact.py": "c7c1c6ef1d4822958e72c8afc769e4f3ceed836672ce9f4ea375c1366965772c",
+    "kernels/gateup64.py": "399aa701a6de264a840cd8e0f2cbd10f940fc711203c92732c6cb0d6a5e29533",
+    "kernels/gemm.py": "89bb37e315fa66694c6451ce5f5926ce9e1918b2a51c4131aae338125e9f3a4d",
+    "kernels/m64_gateup_selection.py": "31ee3e1367eee0a4b7e04362fb1864404591dbbf4c48fb5512e07dc410fca361",
+    "kernels/rmsnorm.py": "2b94cc1921159102046b7e27dac718a6b4551d5333ef89622de8cc7e2809949b",
+    "kernels/rope.py": "7461f6b065837da04693e6e591add872e7ac5a005514d7886d188cf7aa183fc0",
+    "kernels/swiglu.py": "b5a0837230f0d1627d3b880f9121e8be69d1b539d315bc82c0d09fc3b156f2ee",
+    "model.py": "9a1f096d1588829a74c7e80f30a8115c500c01143adfc1838f31ddc92810dd97",
+    "pair_cache.py": "d01a2e14aee48396f2f44c0c09491f53afe3c68bc789bc8160237f214e9d5e74",
+    "recycle.py": "ec36edf4873c4696c17c61f03c2ab733adab7bdb3ddf73a648304dec92d48e87",
+    "spec.py": "2084c5c1c33dd99a03f0da34a7cbb1d88148e6be7fa9a74b3b9b8458f49092b8"
+  },
+  "preparation_files": {
+    "CANDIDATE.diff": "7bf36c23eb0f2afb6ed0aee52e188254e2d376ad8b0aa76cffb8294900bda009",
+    "COMPILE_PLAN.json": "1ab156bedf63442564e181c24d736e50e0ea1e086ff7fb0e2b5ac93223561dae",
+    "CPU_RESULTS.json": "36f8088eea67e81e112d27c3e2e6ae62b6e336726212c9d2fd6493081fe76bf0",
+    "HOST_LAUNCH_CHECKS.json": "4a067aed037f9049cd72ca50e4958cd3f97757de0e080592820fd5a932310063",
+    "PROVENANCE.json": "6212c893e60c22781b5ba067f7b90ba740f0cbd3de76379cbde177ac4c2e4b80",
+    "REPORT.md": "86bba7654c18f493ae53829dadf9044a09d8d38b22e22b90a2c7d7cb82236f27",
+    "SOURCE_MANIFEST.json": "badcf599e7268757a7cc7d2d56807caae9dfb75c4542ab580eee3d681955d5f8",
+    "SOURCE_SHA256.txt": "ea2f5459a7496c1ec4f94c25d0bb53f544a77f6ca59ab43b6a6fabae0e25806a",
+    "STATUS.json": "ad505b63fdd6fd34c44dd1f574e8acc5ebbde3a618c3bebc024ec42a234bb8ff",
+    "check_host_launches.py": "9b73111f4642ee5e12c8477a2fbe3ceb64749f2ab5fe18818592495a2a143e7b",
+    "check_triple_context.py": "22a137fc69da1c1e0cca3f7e2874b4a028d7266c9f6eb9ee0159da44ddd2c56c"
+  },
+  "primary_files": {
+    "jit.py": "7542bf9254646331ed90ce16fe1bfb2caf87d77d748d84396aab44c8027d508b",
+    "nvidia_compiler.py": "a979896b9c0acfd41dd953b90bdc4b10968f7c0b45a286eae3f829aaddb2bb55"
+  }
+}

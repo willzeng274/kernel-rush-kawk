@@ -1,0 +1,17 @@
+{
+  "files": {
+    ".gitignore": "1e9fd8f2ef349878f795f7a292bf73cf641f908e3df95907560dea372d4ebbc4",
+    "common.py": "a36628ae67743eded1fa7d9aa1cc055f679d8734b8cd1290b085c053cf6b6254",
+    "compile_triple.py": "fdc9bebee9fb9a3f22d4c97f87da21447b02e6b1d97922ae320899845f3fdfee",
+    "derive_native.py": "b94965387917f2729b714faf57487b6e2522459ef729bcd7eb66469f6bd8fbc2",
+    "preflight.py": "c629b8528c8397fd56a3022b30eed6b0fd8ccd648cc1aad3613381bc2b335903",
+    "triple_kernels.py": "c2657299ef912c671870926881ced8ff283036e7710edfdf1b024a056a2e4f98",
+    "SOURCE_MANIFEST.json": "71cdcd6bf348165d2a30cdddf932fb1e96f4449a7fb1774b5594a8b7ee1fd0f2",
+    "COMPILE_PLAN.json": "1ab156bedf63442564e181c24d736e50e0ea1e086ff7fb0e2b5ac93223561dae",
+    "NATIVE_EXPECTED.json": "a714f300dbd807219fce2a4b7bcf4b6e281bea18075f36f98ce516cb31ddd394"
+  },
+  "compiler_base_commit": "418f4406a546fa7a538b187c6aaa2a56888b7fbf",
+  "compiler_execution_authorized": false,
+  "ci_dispatch_authorized": false,
+  "compile_calls": 0
+}

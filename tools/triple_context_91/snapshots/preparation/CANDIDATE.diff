@@ -1,0 +1,250 @@
+--- a/engine/engine.py
++++ b/engine/engine.py
+@@ -46,7 +46,7 @@
+ from kernels.compact import compact_paths
+ from model import Model, Plan, VerifyPlan
+ from recycle import Recycler
+-from pair_cache import PAIR_SLOTS, prompt_pairs
++from pair_cache import PAIR_SLOTS, TRIPLE_SLOTS, prompt_pairs, prompt_triples
+ from spec import NGramDrafter
+ 
+ PICKER_BUDGET_S = 120.0
+@@ -97,6 +97,15 @@
+             self.seed_pair_slots = torch.empty((pair_rows,), dtype=torch.int64, device=dev)
+             self.seed_pair_keys = torch.empty((pair_rows,), dtype=torch.int64, device=dev)
+             self.seed_pair_next = torch.empty((pair_rows, recycle_k), dtype=torch.int32, device=dev)
++            triple_rows = max(1, B * min(TRIPLE_SLOTS, max(0, T - 3)))
++            self.host_triple_slots = torch.empty((triple_rows,), dtype=torch.int64, pin_memory=True)
++            self.host_triple_keys = torch.empty((triple_rows,), dtype=torch.int64, pin_memory=True)
++            self.host_triple_oldest = torch.empty((triple_rows,), dtype=torch.int32, pin_memory=True)
++            self.host_triple_next = torch.empty((triple_rows, recycle_k), dtype=torch.int32, pin_memory=True)
++            self.seed_triple_slots = torch.empty((triple_rows,), dtype=torch.int64, device=dev)
++            self.seed_triple_keys = torch.empty((triple_rows,), dtype=torch.int64, device=dev)
++            self.seed_triple_oldest = torch.empty((triple_rows,), dtype=torch.int32, device=dev)
++            self.seed_triple_next = torch.empty((triple_rows, recycle_k), dtype=torch.int32, device=dev)
+             self.verify = VerifyPlan(self.plan, R, tree=True, recycler=self.recycler)
+             self.cand = torch.empty((B, R), dtype=torch.int64, device=dev)
+             self.maxa = self.recycler.maxa
+@@ -291,6 +300,26 @@
+         rec.pair_values.index_copy_(0, self.seed_pair_slots[:n], self.seed_pair_next[:n])
+         rec.pair_keys.index_copy_(0, self.seed_pair_slots[:n], self.seed_pair_keys[:n])
+ 
++    def _seed_triple_table(self, input_ids: list[list[int]]) -> None:
++        """Reset request-local exact triple tags; upload values before validity."""
++        rec = self.recycler
++        rec.triple_oldest.fill_(-1)
++        slots, keys, oldest, values = prompt_triples(input_ids, rec.k)
++        n = len(slots)
++        if not n:
++            return
++        self.host_triple_slots.numpy()[:n] = slots
++        self.host_triple_keys.numpy()[:n] = keys
++        self.host_triple_oldest.numpy()[:n] = oldest
++        self.host_triple_next.numpy()[:n] = values
++        self.seed_triple_slots[:n].copy_(self.host_triple_slots[:n], non_blocking=True)
++        self.seed_triple_keys[:n].copy_(self.host_triple_keys[:n], non_blocking=True)
++        self.seed_triple_oldest[:n].copy_(self.host_triple_oldest[:n], non_blocking=True)
++        self.seed_triple_next[:n].copy_(self.host_triple_next[:n], non_blocking=True)
++        rec.triple_values.index_copy_(0, self.seed_triple_slots[:n], self.seed_triple_next[:n])
++        rec.triple_keys.index_copy_(0, self.seed_triple_slots[:n], self.seed_triple_keys[:n])
++        rec.triple_oldest.index_copy_(0, self.seed_triple_slots[:n], self.seed_triple_oldest[:n])
++
+     def run_recycle(self, input_ids: list[list[int]], max_new_tokens: int):
+         """Token-recycling loop: draft tree -> verify -> accept longest path -> compact.
+ 
+@@ -312,6 +341,7 @@
+             plan.ids.copy_(_ids_tensor(input_ids))
+             self._step_prefill()
+             self._seed_pair_table(input_ids)
++            self._seed_triple_table(input_ids)
+             first = plan.tok.tolist()
+             if max_new_tokens == 1:
+                 self._drain_recycle()
+@@ -328,6 +358,10 @@
+             ver.pos.copy_(plan.pos - 1)
+             rec.root.copy_(plan.tok)
+             rec.root_prev.copy_(plan.ids[:, -1])
++            if self.T >= 2:
++                rec.root_prevprev.copy_(plan.ids[:, -2])
++            else:
++                rec.root_prevprev.fill_(-1)
+             self.path_len.zero_()
+             self.nseen.fill_(1)
+             self.limit.fill_(max_new_tokens)
+--- a/engine/pair_cache.py
++++ b/engine/pair_cache.py
+@@ -1,10 +1,11 @@
+-"""Request-local two-token proposals; every proposal still needs verification."""
++"""Request-local pair/triple proposals; every proposal still needs verification."""
+ 
+ import triton
+ import triton.language as tl
+ 
+ 
+ PAIR_SLOTS = 4096
++TRIPLE_SLOTS = 4096
+ 
+ 
+ def pair_slot(key: int) -> int:
+@@ -40,6 +41,35 @@
+     return indices, keys, values
+ 
+ 
++def triple_slot(key: int, oldest: int) -> int:
++    """Hash a 96-bit context; the complete tail-pair and oldest tags are checked."""
++    combined = key ^ (((oldest + 1) * 11400714819323198485) & ((1 << 64) - 1))
++    return pair_slot(combined)
++
++
++def prompt_triples(input_ids: list[list[int]], k: int):
++    """Current-prompt observed successors, with 4096 disjoint slots per sequence."""
++    indices, keys, oldest_tags, values = [], [], [], []
++    width = min(k, 8)
++    for b, ids in enumerate(input_ids):
++        occupied = {}
++        for i in range(len(ids) - 2, 1, -1):
++            key = (ids[i - 1] << 32) | ids[i]
++            oldest = ids[i - 2]
++            slot = triple_slot(key, oldest)
++            entry = occupied.get(slot)
++            if entry is None:
++                occupied[slot] = (key, oldest, [ids[i + 1]])
++            elif entry[0] == key and entry[1] == oldest and len(entry[2]) < width and ids[i + 1] not in entry[2]:
++                entry[2].append(ids[i + 1])
++        for slot, (key, oldest, row) in occupied.items():
++            indices.append(b * TRIPLE_SLOTS + slot)
++            keys.append(key)
++            oldest_tags.append(oldest)
++            values.append(row + [-1] * (k - len(row)))
++    return indices, keys, oldest_tags, values
++
++
+ @triton.jit
+ def _pair_slot(key):
+     key = key.to(tl.uint64)
+@@ -48,8 +78,16 @@
+ 
+ 
+ @triton.jit
++def _triple_slot(key, oldest):
++    salt = (oldest.to(tl.uint64) + 1) * 11400714819323198485
++    return _pair_slot(key.to(tl.uint64) ^ salt)
++
++
++@triton.jit
+ def _publish_pairs_kernel(pair_keys_ptr, pair_values_ptr, node_keys_ptr, top_ptr,
+                           blk_ptr, root_prev_ptr, path_idx_ptr, path_len_ptr,
++                          triple_keys_ptr, triple_oldest_ptr, triple_values_ptr,
++                          node_oldest_ptr, root_prevprev_ptr,
+                           K: tl.constexpr, R: tl.constexpr, MAXA: tl.constexpr,
+                           P: tl.constexpr):
+     """One warp owns a sequence's table; later consumed rows win collisions.
+@@ -71,9 +109,20 @@
+                          mask=active & (ranks < K), other=-1)
+         tl.store(pair_values_ptr + slot * K + ranks, values, mask=active & (ranks < K))
+         tl.store(pair_keys_ptr + slot, key, mask=active)
++        oldest = tl.load(node_oldest_ptr + b * R + row, mask=active, other=-1)
++        triple_active = active & (oldest >= 0)
++        triple_slot = b * 4096 + _triple_slot(key, oldest)
++        tl.store(triple_values_ptr + triple_slot * K + ranks, values,
++                 mask=triple_active & (ranks < K))
++        tl.store(triple_keys_ptr + triple_slot, key, mask=triple_active)
++        # The oldest tag is the validity marker; the next reader follows this
++        # whole kernel on the same stream, never an in-progress publication.
++        tl.store(triple_oldest_ptr + triple_slot, oldest, mask=triple_active)
+     last = tl.load(path_idx_ptr + b * MAXA + tl.maximum(plen - 1, 0),
+                    mask=plen > 0, other=0)
+     previous = tl.load(blk_ptr + b * R + last, mask=plen >= 0, other=0)
++    last_key = tl.load(node_keys_ptr + b * R + last, mask=plen >= 0, other=0).to(tl.uint64)
+     # New root is accept's final prediction. Its predecessor is the consumed
+     # input that produced it, including old root when no draft matched.
+     tl.store(root_prev_ptr + b, previous, mask=plen >= 0)
++    tl.store(root_prevprev_ptr + b, (last_key >> 32).to(tl.int32), mask=plen >= 0)
+--- a/engine/recycle.py
++++ b/engine/recycle.py
+@@ -21,7 +21,7 @@
+ 
+ from kernels.accept import flat_children
+ from kernels.attention import ancestor_masks
+-from pair_cache import PAIR_SLOTS, _pair_slot, _publish_pairs_kernel
++from pair_cache import PAIR_SLOTS, TRIPLE_SLOTS, _pair_slot, _triple_slot, _publish_pairs_kernel
+ 
+ #: Rough acceptance probability of a child by its rank among a node's k
+ #: candidates, used only to decide which tree nodes are worth a row.
+@@ -89,10 +89,12 @@
+ def _draft_kernel(root_ptr, table_ptr, parent_ptr, rank_ptr, spine_slot_ptr, spine_ptr,
+                   nseen_ptr, anchor_ptr, blk_ptr, root_prev_ptr, node_keys_ptr,
+                   pair_keys_ptr, pair_values_ptr,
++                  root_prevprev_ptr, node_oldest_ptr, triple_keys_ptr,
++                  triple_oldest_ptr, triple_values_ptr,
+                   K: tl.constexpr, R: tl.constexpr, S: tl.constexpr, SP: tl.constexpr):
+     """Nodes are filled in index order (parents first). A node on the spine takes
+     the host's n-gram token when one is present (>= 0); otherwise it tries the
+-    exact pair ending at its parent, then table[token(parent)][rank].
++    exact triple ending at its parent, then the pair, then the unigram table.
+ 
+     The host writes the n-gram continuation a round late — it launches round
+     t + 1 before it has read round t's tokens — so the pool it wrote is anchored
+@@ -107,6 +109,8 @@
+     previous = tl.load(root_prev_ptr + b)
+     root_key = (previous.to(tl.uint64) << 32) | tok.to(tl.uint64)
+     tl.store(node_keys_ptr + b * R, root_key)
++    oldest = tl.load(root_prevprev_ptr + b)
++    tl.store(node_oldest_ptr + b * R, oldest)
+     off = tl.load(nseen_ptr + b) - tl.load(anchor_ptr + b)
+     prev = tl.load(spine_ptr + b * SP + tl.minimum(tl.maximum(off - 1, 0), SP - 1))
+     fresh = (off >= 0) & (off + S <= SP) & ((off == 0) | (prev == tok))
+@@ -121,6 +125,14 @@
+         pair_cand = tl.load(pair_values_ptr + pair_slot * K + r,
+                             mask=stored_key == key, other=-1)
+         cand = tl.where(pair_cand >= 0, pair_cand, cand)
++        oldest = tl.load(node_oldest_ptr + b * R + p)
++        triple_slot = b * 4096 + _triple_slot(key, oldest)
++        stored_oldest = tl.load(triple_oldest_ptr + triple_slot)
++        valid_oldest = (oldest >= 0) & (stored_oldest == oldest)
++        stored_tail = tl.load(triple_keys_ptr + triple_slot, mask=valid_oldest, other=-1)
++        triple_cand = tl.load(triple_values_ptr + triple_slot * K + r,
++                              mask=valid_oldest & (stored_tail == key), other=-1)
++        cand = tl.where(triple_cand >= 0, triple_cand, cand)
+         slot = tl.load(spine_slot_ptr + i)
+         sp = tl.load(spine_ptr + b * SP + tl.minimum(tl.maximum(off + slot, 0), SP - 1))
+         use_spine = (slot >= 0) & (sp >= 0) & fresh
+@@ -128,6 +140,7 @@
+         tl.store(blk_ptr + b * R + i, node)
+         node_key = (ptok.to(tl.uint64) << 32) | node.to(tl.uint64)
+         tl.store(node_keys_ptr + b * R + i, node_key)
++        tl.store(node_oldest_ptr + b * R + i, (key.to(tl.uint64) >> 32).to(tl.int32))
+ 
+ 
+ class Recycler:
+@@ -142,6 +155,11 @@
+         self.pair_values = torch.empty((B * PAIR_SLOTS, k), dtype=torch.int32, device=device)
+         self.node_keys = torch.zeros((B, R), dtype=torch.int64, device=device)
+         self.root_prev = torch.zeros((B,), dtype=torch.int64, device=device)
++        self.root_prevprev = torch.full((B,), -1, dtype=torch.int32, device=device)
++        self.node_oldest = torch.full((B, R), -1, dtype=torch.int32, device=device)
++        self.triple_keys = torch.empty((B * TRIPLE_SLOTS,), dtype=torch.int64, device=device)
++        self.triple_oldest = torch.full((B * TRIPLE_SLOTS,), -1, dtype=torch.int32, device=device)
++        self.triple_values = torch.empty((B * TRIPLE_SLOTS, k), dtype=torch.int32, device=device)
+         self.top = torch.empty((B * R, k), dtype=torch.int32, device=device)
+         self.parent = torch.tensor(self.template.parent, dtype=torch.int32, device=device)
+         self.rank = torch.tensor(self.template.rank, dtype=torch.int32, device=device)
+@@ -181,13 +199,17 @@
+         _draft_kernel[(self.B,)](self.root, self.table, self.parent, self.rank, self.spine_slot, self.spine,
+                                  nseen, self.spine_anchor, self.blk,
+                                  self.root_prev, self.node_keys, self.pair_keys, self.pair_values,
++                                 self.root_prevprev, self.node_oldest, self.triple_keys,
++                                 self.triple_oldest, self.triple_values,
+                                  K=self.k, R=self.R, S=self.S, SP=self.SP)
+ 
+     def publish_pairs(self, path_idx: torch.Tensor, path_len: torch.Tensor) -> None:
+         """Publish only consumed accepted rows, then advance the root predecessor."""
+         _publish_pairs_kernel[(self.B,)](
+             self.pair_keys, self.pair_values, self.node_keys, self.top, self.blk,
+-            self.root_prev, path_idx, path_len, K=self.k, R=self.R,
++            self.root_prev, path_idx, path_len,
++            self.triple_keys, self.triple_oldest, self.triple_values, self.node_oldest,
++            self.root_prevprev, K=self.k, R=self.R,
+             MAXA=self.maxa, P=triton.next_power_of_2(self.k), num_warps=1)
+ 
+     def accept(self, blk_row: list[int], cand_row: list[int],
