@@ -10,12 +10,17 @@ def main():
     OUT.mkdir(exist_ok=True)
     configs = []
     for cap in (255, 256, 257, 544, 640, 2080, 4097):
+        splits = (cap+11+127)//128
         configs.append(('offline_chain.py', dict(
-            id=f'lookahead12_attention_n128_c{cap}',
-            kernel='lookahead_attention_kernel', source='lookahead_kernels.py',
-            cap=cap, width=12, warps=8, stages=1, fusion=True,
-            constants=dict(CAP=cap, W=12, D=128, SPLITS=(cap+11+127)//128,
-                           SCALE=128**-0.5, BLOCK_N=128))))
+            id=f'lookahead12_merge_n128_c{cap}',
+            kernel='chain_merge_kernel', source='recycled_kernels.py',
+            cap=cap, width=12, warps=4, stages=3, fusion=True,
+            constants=dict(SPLITS=splits, BLOCK_S=1 << (splits-1).bit_length(), D=128))))
+    for batch in (1,4,16):
+        configs.append(('offline_chain.py', dict(
+            id=f'lookahead12_ids_b{batch}', kernel='chain_ids_kernel',
+            source='recycled_kernels.py', cap=544, width=12, warps=4, stages=3,
+            fusion=True, constants=dict(W=12, ROWS=batch*12, BLOCK=128))))
     results = []
     for script, config in configs:
         try:
